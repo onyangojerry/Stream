@@ -76,21 +76,24 @@ const Home = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Hero Section */}
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-4 sm:space-y-6">
         <motion.h1 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-4xl font-bold text-gray-900 dark:text-white"
+          className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white px-4"
         >
-          Welcome to Striim
+          Welcome to{' '}
+          <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Striim
+          </span>
         </motion.h1>
         <motion.p 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto"
+          className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto px-4"
         >
           The ultimate video streaming platform for webinars, one-on-one calls, and group meetings with advanced features like real-time transcription and sign language support.
         </motion.p>
@@ -101,10 +104,10 @@ const Home = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6"
       >
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Join Meeting</h2>
-        <div className="flex space-x-4">
+        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
           <input
             type="text"
             placeholder="Enter meeting ID"
@@ -115,7 +118,7 @@ const Home = () => {
           <button
             onClick={handleJoinMeeting}
             disabled={!roomId.trim()}
-            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
             Join
           </button>
@@ -123,7 +126,7 @@ const Home = () => {
       </motion.div>
 
       {/* Call Types */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {callTypes.map((type, index) => {
           const Icon = type.icon
           return (
@@ -132,23 +135,23 @@ const Home = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 + index * 0.1 }}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md dark:hover:shadow-lg transition-shadow cursor-pointer"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-lg transition-shadow cursor-pointer"
               onClick={() => navigate(type.href)}
             >
-              <div className={`w-12 h-12 bg-gradient-to-r ${type.color} rounded-lg flex items-center justify-center mb-4`}>
-                <Icon className="w-6 h-6 text-white" />
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${type.color} rounded-lg flex items-center justify-center mb-3 sm:mb-4`}>
+                <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{type.title}</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">{type.description}</p>
-              <ul className="space-y-1 mb-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">{type.title}</h3>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-3 sm:mb-4">{type.description}</p>
+              <ul className="space-y-1 mb-3 sm:mb-4">
                 {type.features.map((feature) => (
-                  <li key={feature} className="text-sm text-gray-500 dark:text-gray-400 flex items-center">
+                  <li key={feature} className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex items-center">
                     <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
                     {feature}
                   </li>
                 ))}
               </ul>
-              <button className="w-full btn-primary flex items-center justify-center space-x-2">
+              <button className="w-full btn-primary flex items-center justify-center space-x-2 text-sm sm:text-base">
                 <span>Start {type.title}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
@@ -162,12 +165,12 @@ const Home = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6"
       >
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Meetings</h2>
         <div className="space-y-3">
           {recentMeetings.map((meeting) => (
-            <div key={meeting.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div key={meeting.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2 sm:space-y-0">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
                   <Calendar className="w-4 h-4 text-blue-600" />
@@ -177,7 +180,7 @@ const Home = () => {
                   <p className="text-sm text-gray-500 dark:text-gray-400">{meeting.type}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-4 text-sm text-gray-500 dark:text-gray-400">
                 <span className="flex items-center space-x-1">
                   <Clock className="w-4 h-4" />
                   <span>{meeting.time}</span>

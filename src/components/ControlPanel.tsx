@@ -47,15 +47,15 @@ const ControlPanel = () => {
   }
 
   return (
-    <div className="bg-gray-800 p-4 rounded-lg">
+    <div className="bg-gray-800 p-2 sm:p-4 rounded-lg">
       {/* Main Controls */}
-      <div className="flex items-center justify-center space-x-4">
+      <div className="flex items-center justify-center space-x-2 sm:space-x-4">
         <button
           onClick={toggleAudio}
           className={`control-button ${!isAudioEnabled ? 'muted' : ''}`}
           title={isAudioEnabled ? 'Mute Audio' : 'Unmute Audio'}
         >
-          {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+          {isAudioEnabled ? <Mic className="w-4 h-4 sm:w-5 sm:h-5" /> : <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />}
         </button>
         
         <button
@@ -63,7 +63,7 @@ const ControlPanel = () => {
           className={`control-button ${!isVideoEnabled ? 'muted' : ''}`}
           title={isVideoEnabled ? 'Turn Off Video' : 'Turn On Video'}
         >
-          {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+          {isVideoEnabled ? <Video className="w-4 h-4 sm:w-5 sm:h-5" /> : <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />}
         </button>
         
         <button
@@ -71,7 +71,7 @@ const ControlPanel = () => {
           className={`control-button ${isScreenSharing ? 'active' : ''}`}
           title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
         >
-          {isScreenSharing ? <MonitorOff className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
+          {isScreenSharing ? <MonitorOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />}
         </button>
         
         <button
@@ -79,7 +79,7 @@ const ControlPanel = () => {
           className={`control-button ${isRecording ? 'active' : ''}`}
           title={isRecording ? 'Stop Recording' : 'Start Recording'}
         >
-          <div className={`w-5 h-5 rounded-full border-2 ${isRecording ? 'bg-red-500 border-red-500' : 'border-white'}`}></div>
+          <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 ${isRecording ? 'bg-red-500 border-red-500' : 'border-white'}`}></div>
         </button>
         
         <button
@@ -87,7 +87,7 @@ const ControlPanel = () => {
           className="control-button"
           title="Settings"
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
         
         <button
@@ -95,14 +95,14 @@ const ControlPanel = () => {
           className="control-button"
           title="More Options"
         >
-          <MoreVertical className="w-5 h-5" />
+          <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
       </div>
 
       {/* Advanced Controls */}
       {showAdvanced && (
         <div className="mt-4 pt-4 border-t border-gray-700">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs text-gray-300">Audio Level</label>
               <div className="flex items-center space-x-2">
@@ -128,7 +128,7 @@ const ControlPanel = () => {
             </div>
           </div>
           
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
             <button
               onClick={toggleTranscription}
               className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
