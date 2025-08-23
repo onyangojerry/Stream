@@ -8,11 +8,11 @@ import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
-import CollaborativeDocument from '../components/CollaborativeDocument'
+import Whiteboard from '../components/Whiteboard'
+import ControlButton from '../components/ControlButton'
 import { 
   PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, 
-  MessageSquare, FileText, Settings, Users, UserPlus, UserMinus, 
-  Grid, List, Share2, Copy, Check
+  MessageSquare, FileText, Settings, Users, Share2, Copy, Check
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -21,21 +21,18 @@ const GroupCall = () => {
   const navigate = useNavigate()
   const [showChat, setShowChat] = useState(false)
   const [showTranscription, setShowTranscription] = useState(false)
-  const [showParticipants, setShowParticipants] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showWaitingRoom, setShowWaitingRoom] = useState(false)
-  const [showDocument, setShowDocument] = useState(false)
+  const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isHost, setIsHost] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [, setShowBreakoutRooms] = useState(false)
   
   const {
     setCurrentRoom,
     localStream,
     setLocalStream,
-    remoteStreams,
+
     isAudioEnabled,
     isVideoEnabled,
     isScreenSharing,
@@ -46,11 +43,9 @@ const GroupCall = () => {
     isRecording,
     startRecording,
     stopRecording,
-
     setHostStatus,
     waitingRoom,
     addToWaitingRoom,
-
     startMeeting,
     endMeeting,
     leaveMeeting,
@@ -79,115 +74,77 @@ const GroupCall = () => {
         return
       }
 
-      // Check if user is joining via link (not the host)
       const urlParams = new URLSearchParams(window.location.search)
       const isJoining = urlParams.get('join') === 'true'
       
       if (isJoining) {
-        // User is joining via link - add to waiting room
         addToWaitingRoom(currentUser)
         toast.success('Waiting for host approval to join the group call')
         return
       }
 
-      // Check if this is a scheduled meeting
       const scheduledMeeting = getMeetingById(roomId || '')
       if (scheduledMeeting) {
-        // Check attendee limit
         if (scheduledMeeting.currentAttendees >= scheduledMeeting.attendeeLimit) {
           toast.error('Meeting is full. Cannot join.')
           navigate('/')
           return
         }
-
-        // Try to join the meeting
-        const joined = joinMeeting(roomId || '')
-        if (!joined) {
-          toast.error('Failed to join meeting. It may be full.')
-          navigate('/')
-          return
-        }
-
-        toast.success(`Joined scheduled meeting: ${scheduledMeeting.title}`)
+        joinMeeting(roomId || '')
       }
 
-      // User is the host (starting the call)
-      setHostStatus(true)
-      setIsHost(true)
-      startMeeting()
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      })
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       setLocalStream(stream)
+      setIsHost(true)
+      setHostStatus(true)
+      startMeeting()
       
       toast.success('Group call started! Share the link to invite others.')
     } catch (error) {
       console.error('Error initializing group call:', error)
-      toast.error('Failed to join group call')
+      toast.error('Failed to start group call')
     }
   }
 
   const cleanupGroupCall = () => {
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop())
-      setLocalStream(null)
     }
-    
-    // Leave scheduled meeting if applicable
-    const scheduledMeeting = getMeetingById(roomId || '')
-    if (scheduledMeeting && currentUser) {
-      leaveScheduledMeeting(roomId || '')
-    }
-    
     reset()
   }
 
   const handleEndCall = () => {
     if (isHost) {
       endMeeting()
-      cleanupGroupCall()
-      navigate('/')
-      toast.success('Group call ended')
     } else {
       leaveMeeting()
-      cleanupGroupCall()
-      navigate('/')
-      toast.success('Left the group call')
     }
+    
+    if (roomId) {
+      leaveScheduledMeeting(roomId)
+    }
+    
+    cleanupGroupCall()
+    navigate('/')
+    toast.success('Left group call')
   }
 
   const handleScreenShare = async () => {
     try {
-      if (!isScreenSharing) {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true
-        })
-        
-        // Add event listener to detect when user stops sharing
-        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
-          stopScreenShare()
-          toast.success('Screen sharing stopped')
-        })
-        
-        // Store the screen share stream
-        useVideoStore.getState().setScreenShare({
-          id: 'screen-share-' + Date.now(),
-          stream: screenStream,
-          user: currentUser || { id: 'local', name: 'You', email: '', isOnline: true },
-          isActive: true
-        })
-        
-        toggleScreenShare()
-        toast.success('Screen sharing started')
-      } else {
+      if (isScreenSharing) {
         stopScreenShare()
         toast.success('Screen sharing stopped')
+      } else {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+        toggleScreenShare()
+        
+        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+          stopScreenShare()
+        })
+        
+        toast.success('Screen sharing started')
       }
     } catch (error) {
-      console.error('Error with screen sharing:', error)
       if (error instanceof Error && error.name === 'NotAllowedError') {
         toast.error('Screen sharing permission denied')
       } else {
@@ -197,35 +154,13 @@ const GroupCall = () => {
   }
 
   const handleRecording = () => {
-    if (!isHost) {
-      toast.error('Only hosts can record')
-      return
-    }
-
-    if (!isRecording) {
-      startRecording()
-      toast.success('Recording started')
-    } else {
+    if (isRecording) {
       stopRecording()
       toast.success('Recording stopped')
+    } else {
+      startRecording()
+      toast.success('Recording started')
     }
-  }
-
-  const createBreakoutRooms = () => {
-    if (!isHost) {
-      toast.error('Only hosts can create breakout rooms')
-      return
-    }
-    setShowBreakoutRooms(true)
-    toast.success('Breakout rooms created')
-  }
-
-  const muteAllParticipants = () => {
-    if (!isHost) {
-      toast.error('Only hosts can mute all participants')
-      return
-    }
-    toast.success('All participants muted')
   }
 
   const getMeetingLink = () => {
@@ -240,197 +175,145 @@ const GroupCall = () => {
     try {
       await navigator.clipboard.writeText(getMeetingLink())
       setCopied(true)
-      toast.success('Meeting link copied to clipboard!')
+      toast.success('Meeting link copied to clipboard')
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      console.error('Failed to copy link:', error)
       toast.error('Failed to copy link')
     }
   }
 
   const handleShareNative = async () => {
-    if (navigator.share) {
-      try {
+    try {
+      if (navigator.share) {
         await navigator.share({
-          title: 'Join my group call on Striim',
-          text: 'Click the link to join my group video call',
+          title: 'Join my group call',
+          text: 'Click the link to join my group call',
           url: getMeetingLink()
         })
-      } catch (error) {
-        console.error('Error sharing:', error)
+      } else {
+        handleCopyLink()
       }
-    } else {
+    } catch (error) {
       handleCopyLink()
     }
   }
 
+  if (!currentUser) {
+    return <div>Loading...</div>
+  }
+
   return (
-    <div className="h-screen bg-gray-900 flex flex-col">
-      <WaitingRoomNotification />
+    <div className="min-h-screen bg-gray-900 text-white relative">
       {/* Header */}
-      <div className="bg-gray-800 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="absolute top-0 left-0 right-0 z-10 bg-gray-800 bg-opacity-90 backdrop-blur-sm p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <h1 className="text-xl font-bold">Group Call</h1>
+            <span className="text-sm text-gray-300">Room: {roomId}</span>
+          </div>
+          
           <div className="flex items-center space-x-2">
-            <Users className="w-5 h-5 text-green-400" />
-            <h1 className="text-white font-semibold">Group Call: {roomId}</h1>
-          </div>
-          <div className="flex items-center space-x-2 text-green-400">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-sm">Connected</span>
-          </div>
-          {isHost && (
-            <span className="px-2 py-1 bg-green-600 text-white text-xs rounded-full">
-              Host
-            </span>
-          )}
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          {isHost && (
-            <button
-              onClick={() => setShowWaitingRoom(!showWaitingRoom)}
-              className="control-button bg-yellow-600 hover:bg-yellow-700"
-              title="Waiting Room"
+            {isHost && (
+              <ControlButton
+                onClick={() => setShowWaitingRoom(!showWaitingRoom)}
+                title="Manage Waiting Room - Approve/Reject Attendees"
+                variant="warning"
+                showBadge={waitingRoom.length > 0}
+                badgeContent={waitingRoom.length}
+                badgeColor="red"
+              >
+                <Users />
+              </ControlButton>
+            )}
+            <ControlButton
+              onClick={handleShareMeeting}
+              title="Share Meeting Link with Others"
+              variant="success"
             >
-              <Users className="w-5 h-5" />
-              {waitingRoom.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  {waitingRoom.length}
-                </span>
-              )}
-            </button>
-          )}
-          <button
-            onClick={handleShareMeeting}
-            className="control-button bg-blue-600 hover:bg-blue-700"
-            title="Share Meeting"
-          >
-            <Share2 className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-            className="control-button"
-            title={`Switch to ${viewMode === 'grid' ? 'list' : 'grid'} view`}
-          >
-            {viewMode === 'grid' ? <List className="w-5 h-5" /> : <Grid className="w-5 h-5" />}
-          </button>
-          <button
-            onClick={() => setShowParticipants(!showParticipants)}
-            className="control-button"
-            title="Participants"
-          >
-            <Users className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="control-button"
-            title="Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
+              <Share2 />
+            </ControlButton>
+            <ControlButton
+              onClick={() => setShowSettings(!showSettings)}
+              title="Meeting Settings and Configuration"
+              variant="default"
+            >
+              <Settings />
+            </ControlButton>
+          </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
-        {/* Video Area */}
-        <div className="flex-1 relative">
-          {!isHost && waitingRoom.length > 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <WaitingRoom />
-            </div>
-          ) : (
-            <VideoGrid />
-          )}
-          
-          {/* Floating Controls */}
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
-            <div className="flex items-center space-x-4 bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-full px-6 py-3">
-              <button
-                onClick={toggleAudio}
-                className={`control-button ${!isAudioEnabled ? 'muted' : ''}`}
-                title={isAudioEnabled ? 'Mute Audio' : 'Unmute Audio'}
-              >
-                {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-              </button>
-              
-              <button
-                onClick={toggleVideo}
-                className={`control-button ${!isVideoEnabled ? 'muted' : ''}`}
-                title={isVideoEnabled ? 'Turn Off Video' : 'Turn On Video'}
-              >
-                {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-              </button>
-              
-              <button
-                onClick={handleScreenShare}
-                className={`control-button ${isScreenSharing ? 'active' : ''}`}
-                title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
-              >
-                {isScreenSharing ? <MonitorOff className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
-              </button>
-              
-              <button
-                onClick={handleRecording}
-                className={`control-button ${isRecording ? 'active' : ''}`}
-                title={isRecording ? 'Stop Recording' : 'Start Recording'}
-              >
-                <div className={`w-5 h-5 rounded-full border-2 ${isRecording ? 'bg-red-500 border-red-500' : 'border-white'}`}></div>
-              </button>
-              
-              <button
-                onClick={() => setShowChat(!showChat)}
-                className={`control-button ${showChat ? 'active' : ''}`}
-                title="Toggle Chat"
-              >
-                <MessageSquare className="w-5 h-5" />
-              </button>
-              
-              <button
-                onClick={() => setShowTranscription(!showTranscription)}
-                className={`control-button ${showTranscription ? 'active' : ''}`}
-                title="Toggle Transcription"
-              >
-                <FileText className="w-5 h-5" />
-              </button>
-              
-              <button
-                onClick={() => setShowDocument(!showDocument)}
-                className={`control-button ${showDocument ? 'active' : ''}`}
-                title="Collaborative Document"
-              >
-                <FileText className="w-5 h-5" />
-              </button>
-              
-              <button
-                onClick={handleEndCall}
-                className="control-button bg-red-600 hover:bg-red-700"
-                title="End Call"
-              >
-                <PhoneOff className="w-5 h-5" />
-              </button>
-            </div>
+      <div className="pt-20 pb-32 px-4">
+        <VideoGrid />
+        
+        {/* Floating Controls */}
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
+          <div className="flex items-center space-x-4 bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-full px-6 py-3">
+            <ControlButton
+              onClick={toggleAudio}
+              title={isAudioEnabled ? 'Mute Audio' : 'Unmute Audio'}
+              variant={!isAudioEnabled ? 'muted' : 'default'}
+            >
+              {isAudioEnabled ? <Mic /> : <MicOff />}
+            </ControlButton>
+            
+            <ControlButton
+              onClick={toggleVideo}
+              title={isVideoEnabled ? 'Turn Off Video' : 'Turn On Video'}
+              variant={!isVideoEnabled ? 'muted' : 'default'}
+            >
+              {isVideoEnabled ? <Video /> : <VideoOff />}
+            </ControlButton>
+            
+            <ControlButton
+              onClick={handleScreenShare}
+              title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
+              variant={isScreenSharing ? 'active' : 'default'}
+            >
+              {isScreenSharing ? <MonitorOff /> : <Monitor />}
+            </ControlButton>
+            
+            <ControlButton
+              onClick={handleRecording}
+              title={isRecording ? 'Stop Recording' : 'Start Recording'}
+              variant={isRecording ? 'active' : 'default'}
+            >
+              <div className={`w-full h-full rounded-full border-2 ${isRecording ? 'bg-red-500 border-red-500' : 'border-white'}`}></div>
+            </ControlButton>
+            
+            <ControlButton
+              onClick={() => setShowChat(!showChat)}
+              title="Toggle Chat Panel"
+              variant={showChat ? 'active' : 'default'}
+            >
+              <MessageSquare />
+            </ControlButton>
+            
+            <ControlButton
+              onClick={() => setShowTranscription(!showTranscription)}
+              title="Toggle Real-time Transcription"
+              variant={showTranscription ? 'active' : 'default'}
+            >
+              <FileText />
+            </ControlButton>
+            
+            <ControlButton
+              onClick={() => setShowWhiteboard(!showWhiteboard)}
+              title="Open Collaborative Whiteboard"
+              variant={showWhiteboard ? 'active' : 'default'}
+            >
+              <FileText />
+            </ControlButton>
+            
+            <ControlButton
+              onClick={handleEndCall}
+              title="End Call and Leave Meeting"
+              variant="danger"
+            >
+              <PhoneOff />
+            </ControlButton>
           </div>
-
-          {/* Host Controls */}
-          {isHost && (
-            <div className="absolute top-6 right-6 flex space-x-2">
-              <button
-                onClick={muteAllParticipants}
-                className="control-button bg-yellow-600 hover:bg-yellow-700"
-                title="Mute All"
-              >
-                <UserMinus className="w-4 h-4" />
-              </button>
-              <button
-                onClick={createBreakoutRooms}
-                className="control-button bg-blue-600 hover:bg-blue-700"
-                title="Create Breakout Rooms"
-              >
-                <UserPlus className="w-4 h-4" />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Side Panels */}
@@ -452,93 +335,16 @@ const GroupCall = () => {
               <TranscriptionPanel />
             </div>
           )}
-          
-          {showDocument && (
-            <div className="w-96 bg-white rounded-lg shadow-lg">
-              <CollaborativeDocument />
-            </div>
-          )}
-          
-          {showParticipants && (
-            <div className="w-80 bg-white rounded-lg shadow-lg">
-              <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Participants</h3>
-                
-                {/* Real-time participant count */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm font-medium">Host</span>
-                    <span className="text-xs text-gray-500">
-                      {isHost ? 1 : 0}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="text-sm">Participants</span>
-                    <span className="text-xs text-gray-500">
-                      {remoteStreams.length}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                    <span className="text-sm">Total</span>
-                    <span className="text-xs text-gray-500">
-                      {remoteStreams.length + (isHost ? 1 : 0)}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Real participant list */}
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-gray-700 mb-2">Online</div>
-                  
-                  {/* Show current user if they're the host */}
-                  {isHost && currentUser && (
-                    <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm">{currentUser.name}</span>
-                        <span className="px-1 py-0.5 bg-green-100 text-green-700 text-xs rounded">Host</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {!isAudioEnabled && <MicOff className="w-3 h-3 text-red-500" />}
-                        {!isVideoEnabled && <VideoOff className="w-3 h-3 text-red-500" />}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Show remote participants */}
-                  {remoteStreams.map((stream) => (
-                    <div key={stream.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm">{stream.user.name}</span>
-                        <span className="px-1 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">Participant</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {!stream.isAudioEnabled && <MicOff className="w-3 h-3 text-red-500" />}
-                        {!stream.isVideoEnabled && <VideoOff className="w-3 h-3 text-red-500" />}
-                        {stream.isScreenShare && <Monitor className="w-3 h-3 text-blue-500" />}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Show message when no participants */}
-                  {remoteStreams.length === 0 && !isHost && (
-                    <div className="text-center py-4 text-gray-500">
-                      <p className="text-sm">No other participants yet</p>
-                      <p className="text-xs">Share the meeting link to invite others</p>
-                    </div>
-                  )}
-                  
-                  {remoteStreams.length === 0 && isHost && (
-                    <div className="text-center py-4 text-gray-500">
-                      <p className="text-sm">You're the only participant</p>
-                      <p className="text-xs">Share the meeting link to invite others</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Collaborative Whiteboard */}
+      <Whiteboard
+        isOpen={showWhiteboard}
+        onClose={() => setShowWhiteboard(false)}
+        currentUser={currentUser}
+        isHost={isHost}
+      />
 
       {/* Share Meeting Modal */}
       {showShareModal && (
@@ -599,6 +405,8 @@ const GroupCall = () => {
           </div>
         </div>
       )}
+
+      <WaitingRoomNotification />
     </div>
   )
 }

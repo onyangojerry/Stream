@@ -8,7 +8,8 @@ import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import WaitingRoomTest from '../components/WaitingRoomTest'
-import CollaborativeDocument from '../components/CollaborativeDocument'
+import Whiteboard from '../components/Whiteboard'
+import ControlButton from '../components/ControlButton'
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -20,7 +21,7 @@ const VideoCall = () => {
   const [showSettings, setShowSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showWaitingRoom, setShowWaitingRoom] = useState(false)
-  const [showDocument, setShowDocument] = useState(false)
+  const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [copied, setCopied] = useState(false)
   
   const {
@@ -223,33 +224,31 @@ const VideoCall = () => {
         
         <div className="flex items-center space-x-2">
           {isHost && (
-            <button
+            <ControlButton
               onClick={() => setShowWaitingRoom(!showWaitingRoom)}
-              className="control-button bg-yellow-600 hover:bg-yellow-700"
-              title="Waiting Room"
+              title="Manage Waiting Room - Approve/Reject Attendees"
+              variant="warning"
+              showBadge={waitingRoom.length > 0}
+              badgeContent={waitingRoom.length}
+              badgeColor="red"
             >
-              <Users className="w-5 h-5" />
-              {waitingRoom.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  {waitingRoom.length}
-                </span>
-              )}
-            </button>
+              <Users />
+            </ControlButton>
           )}
-          <button
+          <ControlButton
             onClick={handleShareMeeting}
-            className="control-button bg-blue-600 hover:bg-blue-700"
-            title="Share Meeting"
+            title="Share Meeting Link with Others"
+            variant="success"
           >
-            <Share2 className="w-5 h-5" />
-          </button>
-          <button
+            <Share2 />
+          </ControlButton>
+          <ControlButton
             onClick={() => setShowSettings(!showSettings)}
-            className="control-button"
-            title="Settings"
+            title="Meeting Settings and Configuration"
+            variant="default"
           >
-            <Settings className="w-5 h-5" />
-          </button>
+            <Settings />
+          </ControlButton>
         </div>
       </div>
 
@@ -268,69 +267,69 @@ const VideoCall = () => {
           {/* Floating Controls */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
             <div className="flex items-center space-x-4 bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-full px-6 py-3">
-              <button
+              <ControlButton
                 onClick={toggleAudio}
-                className={`control-button ${!isAudioEnabled ? 'muted' : ''}`}
                 title={isAudioEnabled ? 'Mute Audio' : 'Unmute Audio'}
+                variant={!isAudioEnabled ? 'muted' : 'default'}
               >
-                {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-              </button>
+                {isAudioEnabled ? <Mic /> : <MicOff />}
+              </ControlButton>
               
-              <button
+              <ControlButton
                 onClick={toggleVideo}
-                className={`control-button ${!isVideoEnabled ? 'muted' : ''}`}
                 title={isVideoEnabled ? 'Turn Off Video' : 'Turn On Video'}
+                variant={!isVideoEnabled ? 'muted' : 'default'}
               >
-                {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-              </button>
+                {isVideoEnabled ? <Video /> : <VideoOff />}
+              </ControlButton>
               
-              <button
+              <ControlButton
                 onClick={handleScreenShare}
-                className={`control-button ${isScreenSharing ? 'active' : ''}`}
                 title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
+                variant={isScreenSharing ? 'active' : 'default'}
               >
-                {isScreenSharing ? <MonitorOff className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
-              </button>
+                {isScreenSharing ? <MonitorOff /> : <Monitor />}
+              </ControlButton>
               
-              <button
+              <ControlButton
                 onClick={handleRecording}
-                className={`control-button ${isRecording ? 'active' : ''}`}
                 title={isRecording ? 'Stop Recording' : 'Start Recording'}
+                variant={isRecording ? 'active' : 'default'}
               >
-                <div className={`w-5 h-5 rounded-full border-2 ${isRecording ? 'bg-red-500 border-red-500' : 'border-white'}`}></div>
-              </button>
+                <div className={`w-full h-full rounded-full border-2 ${isRecording ? 'bg-red-500 border-red-500' : 'border-white'}`}></div>
+              </ControlButton>
               
-              <button
+              <ControlButton
                 onClick={() => setShowChat(!showChat)}
-                className={`control-button ${showChat ? 'active' : ''}`}
-                title="Toggle Chat"
+                title="Toggle Chat Panel"
+                variant={showChat ? 'active' : 'default'}
               >
-                <MessageSquare className="w-5 h-5" />
-              </button>
+                <MessageSquare />
+              </ControlButton>
               
-              <button
+              <ControlButton
                 onClick={() => setShowTranscription(!showTranscription)}
-                className={`control-button ${showTranscription ? 'active' : ''}`}
-                title="Toggle Transcription"
+                title="Toggle Real-time Transcription"
+                variant={showTranscription ? 'active' : 'default'}
               >
-                <FileText className="w-5 h-5" />
-              </button>
+                <FileText />
+              </ControlButton>
               
-              <button
-                onClick={() => setShowDocument(!showDocument)}
-                className={`control-button ${showDocument ? 'active' : ''}`}
-                title="Collaborative Document"
+              <ControlButton
+                onClick={() => setShowWhiteboard(!showWhiteboard)}
+                title="Open Collaborative Whiteboard"
+                variant={showWhiteboard ? 'active' : 'default'}
               >
-                <FileText className="w-5 h-5" />
-              </button>
+                <FileText />
+              </ControlButton>
               
-              <button
+              <ControlButton
                 onClick={handleEndCall}
-                className="control-button bg-red-600 hover:bg-red-700"
-                title="End Call"
+                title="End Call and Leave Meeting"
+                variant="danger"
               >
-                <PhoneOff className="w-5 h-5" />
-              </button>
+                <PhoneOff />
+              </ControlButton>
             </div>
           </div>
         </div>
@@ -355,13 +354,17 @@ const VideoCall = () => {
             </div>
           )}
           
-          {showDocument && (
-            <div className="w-96 bg-white rounded-lg shadow-lg">
-              <CollaborativeDocument />
-            </div>
-          )}
+          {/* Whiteboard is rendered as a modal overlay */}
         </div>
       </div>
+
+      {/* Collaborative Whiteboard */}
+      <Whiteboard
+        isOpen={showWhiteboard}
+        onClose={() => setShowWhiteboard(false)}
+        currentUser={currentUser}
+        isHost={isHost}
+      />
 
       {/* Share Meeting Modal */}
       {showShareModal && (
