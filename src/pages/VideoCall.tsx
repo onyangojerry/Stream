@@ -38,6 +38,10 @@ const VideoCall = () => {
     setHostStatus,
     waitingRoom,
     addToWaitingRoom,
+
+    startMeeting,
+    endMeeting,
+    leaveMeeting,
     reset
   } = useVideoStore()
 
@@ -75,6 +79,7 @@ const VideoCall = () => {
 
       // User is the host (starting the call)
       setHostStatus(true)
+      startMeeting()
       
       // Get user media
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -99,9 +104,17 @@ const VideoCall = () => {
   }
 
   const handleEndCall = () => {
-    cleanupCall()
-    navigate('/')
-    toast.success('Call ended')
+    if (isHost) {
+      endMeeting()
+      cleanupCall()
+      navigate('/')
+      toast.success('Call ended')
+    } else {
+      leaveMeeting()
+      cleanupCall()
+      navigate('/')
+      toast.success('Left the call')
+    }
   }
 
   const handleScreenShare = async () => {

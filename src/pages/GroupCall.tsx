@@ -48,11 +48,15 @@ const GroupCall = () => {
     setHostStatus,
     waitingRoom,
     addToWaitingRoom,
+
+    startMeeting,
+    endMeeting,
+    leaveMeeting,
     reset
   } = useVideoStore()
 
   const { user: currentUser } = useAuthStore()
-  const { getMeetingById, joinMeeting, leaveMeeting } = useSchedulerStore()
+  const { getMeetingById, joinMeeting, leaveMeeting: leaveScheduledMeeting } = useSchedulerStore()
 
   useEffect(() => {
     if (roomId) {
@@ -108,6 +112,7 @@ const GroupCall = () => {
       // User is the host (starting the call)
       setHostStatus(true)
       setIsHost(true)
+      startMeeting()
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -131,16 +136,24 @@ const GroupCall = () => {
     // Leave scheduled meeting if applicable
     const scheduledMeeting = getMeetingById(roomId || '')
     if (scheduledMeeting && currentUser) {
-      leaveMeeting(roomId || '')
+      leaveScheduledMeeting(roomId || '')
     }
     
     reset()
   }
 
   const handleEndCall = () => {
-    cleanupGroupCall()
-    navigate('/')
-    toast.success('Group call ended')
+    if (isHost) {
+      endMeeting()
+      cleanupGroupCall()
+      navigate('/')
+      toast.success('Group call ended')
+    } else {
+      leaveMeeting()
+      cleanupGroupCall()
+      navigate('/')
+      toast.success('Left the group call')
+    }
   }
 
   const handleScreenShare = async () => {

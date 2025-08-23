@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { Video, Users, Presentation, Calendar, ArrowRight, Clock, Share2, Copy, Check } from 'lucide-react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
+import MeetingConfirmationModal from '../components/MeetingConfirmationModal'
 
 const Home = () => {
   const navigate = useNavigate()
   const [roomId, setRoomId] = useState('')
   const [showShareModal, setShowShareModal] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false)
+  const [selectedMeetingType, setSelectedMeetingType] = useState<'video' | 'group' | 'webinar' | null>(null)
 
   const callTypes = [
     {
@@ -25,6 +28,7 @@ const Home = () => {
       icon: Video,
       color: 'from-blue-500 to-blue-600',
       href: '/call/new',
+      type: 'video',
       features: ['HD Video', 'Crystal Clear Audio', 'Screen Sharing']
     },
     {
@@ -33,6 +37,7 @@ const Home = () => {
       icon: Users,
       color: 'from-green-500 to-green-600',
       href: '/group/new',
+      type: 'group',
       features: ['Up to 50 Participants', 'Breakout Rooms', 'Meeting Recording']
     },
     {
@@ -41,6 +46,7 @@ const Home = () => {
       icon: Presentation,
       color: 'from-purple-500 to-purple-600',
       href: '/webinar/new',
+      type: 'webinar',
       features: ['Live Polling', 'Q&A Sessions', 'Analytics Dashboard']
     }
   ]
@@ -73,9 +79,39 @@ const Home = () => {
   ]
 
   const handleJoinMeeting = () => {
-    if (roomId.trim()) {
-      navigate(`/call/${roomId}`)
+    if (!roomId.trim()) {
+      toast.error('Please enter a meeting ID')
+      return
     }
+    navigate(`/call/${roomId}`)
+  }
+
+  const handleStartMeeting = (type: 'video' | 'group' | 'webinar') => {
+    setSelectedMeetingType(type)
+    setShowConfirmationModal(true)
+  }
+
+  const handleConfirmMeeting = () => {
+    if (!selectedMeetingType) return
+    
+    const roomId = generateRoomId()
+    switch (selectedMeetingType) {
+      case 'video':
+        navigate(`/call/${roomId}`)
+        break
+      case 'group':
+        navigate(`/group/${roomId}`)
+        break
+      case 'webinar':
+        navigate(`/webinar/${roomId}`)
+        break
+    }
+    setShowConfirmationModal(false)
+    setSelectedMeetingType(null)
+  }
+
+  const generateRoomId = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase()
   }
 
   const handleShareMeeting = () => {
@@ -187,7 +223,7 @@ const Home = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 + index * 0.1 }}
               className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => navigate(type.href)}
+              onClick={() => handleStartMeeting(type.type as 'video' | 'group' | 'webinar')}
             >
               <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${type.color} rounded-lg flex items-center justify-center mb-3 sm:mb-4`}>
                 <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
@@ -245,6 +281,14 @@ const Home = () => {
           ))}
         </div>
       </motion.div>
+
+      {/* Meeting Confirmation Modal */}
+      <MeetingConfirmationModal
+        isOpen={showConfirmationModal}
+        onClose={() => setShowConfirmationModal(false)}
+        onConfirm={handleConfirmMeeting}
+        meetingType={selectedMeetingType || 'video'}
+      />
 
       {/* Share Meeting Modal */}
       {showShareModal && (

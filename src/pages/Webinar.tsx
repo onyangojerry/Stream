@@ -46,11 +46,15 @@ const Webinar = () => {
     setHostStatus,
     waitingRoom,
     addToWaitingRoom,
+
+    startMeeting,
+    endMeeting,
+    leaveMeeting,
     reset
   } = useVideoStore()
 
   const { user: currentUser } = useAuthStore()
-  const { getMeetingById, joinMeeting, leaveMeeting } = useSchedulerStore()
+  const { getMeetingById, joinMeeting, leaveMeeting: leaveScheduledMeeting } = useSchedulerStore()
 
   useEffect(() => {
     if (roomId) {
@@ -106,6 +110,7 @@ const Webinar = () => {
       // User is the presenter (starting the webinar)
       setHostStatus(true)
       setIsPresenter(true)
+      startMeeting()
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -129,16 +134,24 @@ const Webinar = () => {
     // Leave scheduled meeting if applicable
     const scheduledMeeting = getMeetingById(roomId || '')
     if (scheduledMeeting && currentUser) {
-      leaveMeeting(roomId || '')
+      leaveScheduledMeeting(roomId || '')
     }
     
     reset()
   }
 
   const handleEndWebinar = () => {
-    cleanupWebinar()
-    navigate('/')
-    toast.success('Webinar ended')
+    if (isPresenter) {
+      endMeeting()
+      cleanupWebinar()
+      navigate('/')
+      toast.success('Webinar ended')
+    } else {
+      leaveMeeting()
+      cleanupWebinar()
+      navigate('/')
+      toast.success('Left the webinar')
+    }
   }
 
   const handleScreenShare = async () => {

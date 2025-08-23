@@ -73,6 +73,12 @@ interface VideoState {
   isConnected: boolean;
   setConnectionState: (connected: boolean) => void;
   
+  // Meeting lifecycle
+  isMeetingActive: boolean;
+  startMeeting: () => void;
+  endMeeting: () => void;
+  leaveMeeting: () => void;
+  
   // Reset
   reset: () => void;
 }
@@ -230,6 +236,12 @@ export const useVideoStore = create<VideoState>((set) => ({
   isConnected: false,
   setConnectionState: (connected) => set({ isConnected: connected }),
   
+  // Meeting lifecycle
+  isMeetingActive: false,
+  startMeeting: () => set({ isMeetingActive: true }),
+  endMeeting: () => set({ isMeetingActive: false }),
+  leaveMeeting: () => set({ isMeetingActive: false }),
+  
   // Reset
   reset: () => set({
     currentRoom: null,
@@ -248,5 +260,6 @@ export const useVideoStore = create<VideoState>((set) => ({
     isHost: false,
     showWaitingRoomNotification: false,
     isConnected: false,
+    isMeetingActive: false,
   }),
 }))
