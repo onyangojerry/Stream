@@ -192,26 +192,34 @@ export const useVideoStore = create<VideoState>((set) => ({
   addToWaitingRoom: (user) => set((state) => {
     const isNewUser = !state.waitingRoom.find(u => u.id === user.id);
     
-    if (isNewUser && state.isHost) {
+    console.log('addToWaitingRoom called:', { user, isNewUser, isHost: state.isHost, currentWaitingRoom: state.waitingRoom.length })
+    
+    if (isNewUser) {
+      // Always trigger notification for new users
       // Play notification sound
       playNotificationSound();
       
-      // Show browser notification
-      showBrowserNotification(
-        'New Attendee Waiting',
-        {
-          body: `${user.name} is waiting to join the meeting`,
-          icon: '/favicon.ico',
-          tag: 'waiting-room-notification'
-        }
-      );
+      // Show browser notification if host
+      if (state.isHost) {
+        showBrowserNotification(
+          'New Attendee Waiting',
+          {
+            body: `${user.name} is waiting to join the meeting`,
+            icon: '/favicon.ico',
+            tag: 'waiting-room-notification'
+          }
+        );
+      }
     }
     
-    return {
+    const newState = {
       waitingRoom: [...state.waitingRoom.filter(u => u.id !== user.id), user],
       // Trigger notification for new users only
       ...(isNewUser && { showWaitingRoomNotification: true })
     };
+    
+    console.log('New waiting room state:', newState)
+    return newState;
   }),
   removeFromWaitingRoom: (userId) => set((state) => ({
     waitingRoom: state.waitingRoom.filter(u => u.id !== userId)

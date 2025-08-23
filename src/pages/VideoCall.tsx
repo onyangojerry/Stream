@@ -7,6 +7,7 @@ import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
+import WaitingRoomTest from '../components/WaitingRoomTest'
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -70,8 +71,11 @@ const VideoCall = () => {
       const urlParams = new URLSearchParams(window.location.search)
       const isJoining = urlParams.get('join') === 'true'
       
+      console.log('VideoCall - isJoining:', isJoining, 'isHost:', isHost, 'currentUser:', currentUser)
+      
       if (isJoining) {
         // User is joining via link - add to waiting room
+        console.log('Adding user to waiting room:', currentUser)
         addToWaitingRoom(currentUser)
         toast.success('Waiting for host approval to join the call')
         return
@@ -204,6 +208,7 @@ const VideoCall = () => {
   return (
     <div className="h-screen bg-gray-900 flex flex-col">
       <WaitingRoomNotification />
+      <WaitingRoomTest />
       {/* Header */}
       <div className="bg-gray-800 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-4">
