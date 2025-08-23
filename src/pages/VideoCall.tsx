@@ -27,6 +27,7 @@ const VideoCall = () => {
     toggleAudio,
     toggleVideo,
     toggleScreenShare,
+    stopScreenShare,
     isRecording,
     startRecording,
     stopRecording,
@@ -87,19 +88,38 @@ const VideoCall = () => {
   const handleScreenShare = async () => {
     try {
       if (!isScreenSharing) {
-        await navigator.mediaDevices.getDisplayMedia({
-          video: true
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true
         })
-        // Handle screen share stream
+        
+        // Add event listener to detect when user stops sharing
+        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+          stopScreenShare()
+          toast.success('Screen sharing stopped')
+        })
+        
+        // Store the screen share stream
+        useVideoStore.getState().setScreenShare({
+          id: 'screen-share-' + Date.now(),
+          stream: screenStream,
+          user: currentUser || { id: 'local', name: 'You', email: '', isOnline: true },
+          isActive: true
+        })
+        
+        toggleScreenShare()
         toast.success('Screen sharing started')
       } else {
-        // Stop screen sharing
+        stopScreenShare()
         toast.success('Screen sharing stopped')
       }
-      toggleScreenShare()
     } catch (error) {
       console.error('Error with screen sharing:', error)
-      toast.error('Failed to start screen sharing')
+      if (error instanceof Error && error.name === 'NotAllowedError') {
+        toast.error('Screen sharing permission denied')
+      } else {
+        toast.error('Failed to start screen sharing')
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import { Mic, MicOff, Video, VideoOff, Monitor } from 'lucide-react'
 
 const VideoGrid = () => {
   const localVideoRef = useRef<HTMLVideoElement>(null)
+  const screenShareRef = useRef<HTMLVideoElement>(null)
   const { localStream, remoteStreams, currentUser, screenShare } = useVideoStore()
 
   useEffect(() => {
@@ -11,6 +12,12 @@ const VideoGrid = () => {
       localVideoRef.current.srcObject = localStream
     }
   }, [localStream])
+
+  useEffect(() => {
+    if (screenShareRef.current && screenShare) {
+      screenShareRef.current.srcObject = screenShare.stream
+    }
+  }, [screenShare])
 
   const totalStreams = remoteStreams.length + (localStream ? 1 : 0) + (screenShare ? 1 : 0)
   
@@ -88,12 +95,10 @@ const VideoGrid = () => {
         {screenShare && (
           <div className="video-container relative col-span-full">
             <video
+              ref={screenShareRef}
               autoPlay
               playsInline
               className="w-full h-full object-contain rounded-lg bg-black"
-              ref={(el) => {
-                if (el) el.srcObject = screenShare.stream
-              }}
             />
             <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 bg-black bg-opacity-50 text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
               {screenShare.user.name} - Screen Share

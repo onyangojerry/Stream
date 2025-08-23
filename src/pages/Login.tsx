@@ -190,18 +190,7 @@ const Login = () => {
               </button>
             </div>
 
-            {/* Demo Credentials */}
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                <strong>Demo Credentials:</strong>
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Email: demo@striim.com
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Password: demo123
-              </p>
-            </div>
+
           </form>
 
           <div className="mt-6">

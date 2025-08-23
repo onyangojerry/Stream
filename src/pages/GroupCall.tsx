@@ -30,12 +30,14 @@ const GroupCall = () => {
     setCurrentRoom,
     localStream,
     setLocalStream,
+    remoteStreams,
     isAudioEnabled,
     isVideoEnabled,
     isScreenSharing,
     toggleAudio,
     toggleVideo,
     toggleScreenShare,
+    stopScreenShare,
     isRecording,
     startRecording,
     stopRecording,
@@ -128,17 +130,38 @@ const GroupCall = () => {
   const handleScreenShare = async () => {
     try {
       if (!isScreenSharing) {
-        await navigator.mediaDevices.getDisplayMedia({
-          video: true
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true
         })
+        
+        // Add event listener to detect when user stops sharing
+        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+          stopScreenShare()
+          toast.success('Screen sharing stopped')
+        })
+        
+        // Store the screen share stream
+        useVideoStore.getState().setScreenShare({
+          id: 'screen-share-' + Date.now(),
+          stream: screenStream,
+          user: currentUser || { id: 'local', name: 'You', email: '', isOnline: true },
+          isActive: true
+        })
+        
+        toggleScreenShare()
         toast.success('Screen sharing started')
       } else {
+        stopScreenShare()
         toast.success('Screen sharing stopped')
       }
-      toggleScreenShare()
     } catch (error) {
       console.error('Error with screen sharing:', error)
-      toast.error('Failed to start screen sharing')
+      if (error instanceof Error && error.name === 'NotAllowedError') {
+        toast.error('Screen sharing permission denied')
+      } else {
+        toast.error('Failed to start screen sharing')
+      }
     }
   }
 
@@ -368,43 +391,76 @@ const GroupCall = () => {
             <div className="w-80 bg-white rounded-lg shadow-lg">
               <div className="p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Participants</h3>
-                <div className="space-y-2">
+                
+                {/* Real-time participant count */}
+                <div className="space-y-2 mb-4">
                   <div className="flex items-center justify-between p-2 bg-green-50 rounded">
                     <span className="text-sm font-medium">Host</span>
-                    <span className="text-xs text-gray-500">1</span>
+                    <span className="text-xs text-gray-500">
+                      {isHost ? 1 : 0}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <span className="text-sm">Participants</span>
-                    <span className="text-xs text-gray-500">8</span>
+                    <span className="text-xs text-gray-500">
+                      {remoteStreams.length}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
                     <span className="text-sm">Total</span>
-                    <span className="text-xs text-gray-500">9</span>
+                    <span className="text-xs text-gray-500">
+                      {remoteStreams.length + (isHost ? 1 : 0)}
+                    </span>
                   </div>
                 </div>
                 
-                {/* Participant List */}
-                <div className="mt-4 space-y-2">
+                {/* Real participant list */}
+                <div className="space-y-2">
                   <div className="text-xs font-medium text-gray-700 mb-2">Online</div>
-                  {[
-                    { name: 'John Doe', role: 'host', isMuted: false },
-                    { name: 'Jane Smith', role: 'participant', isMuted: true },
-                    { name: 'Bob Johnson', role: 'participant', isMuted: false },
-                    { name: 'Alice Brown', role: 'participant', isMuted: false },
-                  ].map((participant, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  
+                  {/* Show current user if they're the host */}
+                  {isHost && currentUser && (
+                    <div className="flex items-center justify-between p-2 bg-green-50 rounded">
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm">{participant.name}</span>
-                        {participant.role === 'host' && (
-                          <span className="px-1 py-0.5 bg-green-100 text-green-700 text-xs rounded">Host</span>
-                        )}
+                        <span className="text-sm">{currentUser.name}</span>
+                        <span className="px-1 py-0.5 bg-green-100 text-green-700 text-xs rounded">Host</span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        {participant.isMuted && <MicOff className="w-3 h-3 text-red-500" />}
-                        <MoreHorizontal className="w-3 h-3 text-gray-400" />
+                        {!isAudioEnabled && <MicOff className="w-3 h-3 text-red-500" />}
+                        {!isVideoEnabled && <VideoOff className="w-3 h-3 text-red-500" />}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Show remote participants */}
+                  {remoteStreams.map((stream) => (
+                    <div key={stream.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm">{stream.user.name}</span>
+                        <span className="px-1 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">Participant</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {!stream.isAudioEnabled && <MicOff className="w-3 h-3 text-red-500" />}
+                        {!stream.isVideoEnabled && <VideoOff className="w-3 h-3 text-red-500" />}
+                        {stream.isScreenShare && <Monitor className="w-3 h-3 text-blue-500" />}
                       </div>
                     </div>
                   ))}
+                  
+                  {/* Show message when no participants */}
+                  {remoteStreams.length === 0 && !isHost && (
+                    <div className="text-center py-4 text-gray-500">
+                      <p className="text-sm">No other participants yet</p>
+                      <p className="text-xs">Share the meeting link to invite others</p>
+                    </div>
+                  )}
+                  
+                  {remoteStreams.length === 0 && isHost && (
+                    <div className="text-center py-4 text-gray-500">
+                      <p className="text-sm">You're the only participant</p>
+                      <p className="text-xs">Share the meeting link to invite others</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -17,6 +17,7 @@ const ControlPanel = () => {
     toggleAudio,
     toggleVideo,
     toggleScreenShare,
+    stopScreenShare,
     isTranscriptionEnabled,
     toggleTranscription,
     isRecording,
@@ -27,12 +28,28 @@ const ControlPanel = () => {
   const handleScreenShare = async () => {
     try {
       if (!isScreenSharing) {
-        await navigator.mediaDevices.getDisplayMedia({
-          video: true
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true
         })
-        // Handle screen share stream
+        
+        // Add event listener to detect when user stops sharing
+        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+          stopScreenShare()
+        })
+        
+        // Store the screen share stream
+        useVideoStore.getState().setScreenShare({
+          id: 'screen-share-' + Date.now(),
+          stream: screenStream,
+          user: { id: 'local', name: 'You', email: '', isOnline: true },
+          isActive: true
+        })
+        
+        toggleScreenShare()
+      } else {
+        stopScreenShare()
       }
-      toggleScreenShare()
     } catch (error) {
       console.error('Error with screen sharing:', error)
     }

@@ -26,6 +26,7 @@ interface VideoState {
   toggleAudio: () => void;
   toggleVideo: () => void;
   toggleScreenShare: () => void;
+  stopScreenShare: () => void;
   
   // Chat
   messages: Message[];
@@ -95,9 +96,35 @@ export const useVideoStore = create<VideoState>((set) => ({
   isAudioEnabled: true,
   isVideoEnabled: true,
   isScreenSharing: false,
-  toggleAudio: () => set((state) => ({ isAudioEnabled: !state.isAudioEnabled })),
-  toggleVideo: () => set((state) => ({ isVideoEnabled: !state.isVideoEnabled })),
+  toggleAudio: () => set((state) => {
+    if (state.localStream) {
+      const audioTrack = state.localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !state.isAudioEnabled;
+      }
+    }
+    return { isAudioEnabled: !state.isAudioEnabled };
+  }),
+  toggleVideo: () => set((state) => {
+    if (state.localStream) {
+      const videoTrack = state.localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !state.isVideoEnabled;
+      }
+    }
+    return { isVideoEnabled: !state.isVideoEnabled };
+  }),
   toggleScreenShare: () => set((state) => ({ isScreenSharing: !state.isScreenSharing })),
+  stopScreenShare: () => set((state) => {
+    if (state.screenShare) {
+      // Stop all tracks in the screen share stream
+      state.screenShare.stream.getTracks().forEach(track => track.stop());
+    }
+    return { 
+      isScreenSharing: false, 
+      screenShare: null 
+    };
+  }),
   
   // Chat
   messages: [],
