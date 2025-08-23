@@ -8,6 +8,7 @@ import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
+import CollaborativeDocument from '../components/CollaborativeDocument'
 import { 
   PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, 
   MessageSquare, FileText, Settings, Users, UserPlus, UserMinus, 
@@ -24,6 +25,7 @@ const GroupCall = () => {
   const [showSettings, setShowSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showWaitingRoom, setShowWaitingRoom] = useState(false)
+  const [showDocument, setShowDocument] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isHost, setIsHost] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -393,6 +395,14 @@ const GroupCall = () => {
               </button>
               
               <button
+                onClick={() => setShowDocument(!showDocument)}
+                className={`control-button ${showDocument ? 'active' : ''}`}
+                title="Collaborative Document"
+              >
+                <FileText className="w-5 h-5" />
+              </button>
+              
+              <button
                 onClick={handleEndCall}
                 className="control-button bg-red-600 hover:bg-red-700"
                 title="End Call"
@@ -440,6 +450,12 @@ const GroupCall = () => {
           {showTranscription && (
             <div className="w-80 bg-white rounded-lg shadow-lg">
               <TranscriptionPanel />
+            </div>
+          )}
+          
+          {showDocument && (
+            <div className="w-96 bg-white rounded-lg shadow-lg">
+              <CollaborativeDocument />
             </div>
           )}
           

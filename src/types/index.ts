@@ -62,3 +62,45 @@ export interface Recording {
 export type CallType = 'one-on-one' | 'group' | 'webinar';
 export type MediaType = 'audio' | 'video' | 'screen';
 export type TranscriptionMode = 'speech' | 'sign-language' | 'both';
+
+export interface Document {
+  id: string;
+  title: string;
+  content: string;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  isPublic: boolean;
+  contributors: string[];
+  version: number;
+}
+
+export interface DocumentChange {
+  id: string;
+  documentId: string;
+  userId: string;
+  userName: string;
+  change: {
+    type: 'insert' | 'delete' | 'format';
+    position: number;
+    text?: string;
+    length?: number;
+    format?: {
+      bold?: boolean;
+      italic?: boolean;
+      underline?: boolean;
+      color?: string;
+    };
+  };
+  timestamp: Date;
+  approved: boolean;
+  pending: boolean;
+}
+
+export interface DocumentPermission {
+  userId: string;
+  userName: string;
+  permission: 'view' | 'edit' | 'approve';
+  grantedBy: string;
+  grantedAt: Date;
+}
