@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { VideoStream, Message, TranscriptionResult, ScreenShare, Recording } from '../types'
+import { playNotificationSound, showBrowserNotification } from '../utils/notifications'
 import { User } from './useAuthStore'
 
 interface VideoState {
@@ -57,6 +58,7 @@ interface VideoState {
   participants: User[];
   waitingRoom: User[];
   isHost: boolean;
+  showWaitingRoomNotification: boolean;
   addParticipant: (participant: User) => void;
   removeParticipant: (userId: string) => void;
   updateParticipant: (userId: string, updates: Partial<User>) => void;
@@ -65,6 +67,7 @@ interface VideoState {
   approveAttendee: (userId: string) => void;
   rejectAttendee: (userId: string) => void;
   setHostStatus: (isHost: boolean) => void;
+  dismissWaitingRoomNotification: () => void;
   
   // Connection state
   isConnected: boolean;
@@ -168,6 +171,7 @@ export const useVideoStore = create<VideoState>((set) => ({
   participants: [],
   waitingRoom: [],
   isHost: false,
+  showWaitingRoomNotification: false,
   addParticipant: (participant) => set((state) => ({
     participants: [...state.participants.filter(p => p.id !== participant.id), participant]
   })),
@@ -179,9 +183,30 @@ export const useVideoStore = create<VideoState>((set) => ({
       p.id === userId ? { ...p, ...updates } : p
     )
   })),
-  addToWaitingRoom: (user) => set((state) => ({
-    waitingRoom: [...state.waitingRoom.filter(u => u.id !== user.id), user]
-  })),
+  addToWaitingRoom: (user) => set((state) => {
+    const isNewUser = !state.waitingRoom.find(u => u.id === user.id);
+    
+    if (isNewUser && state.isHost) {
+      // Play notification sound
+      playNotificationSound();
+      
+      // Show browser notification
+      showBrowserNotification(
+        'New Attendee Waiting',
+        {
+          body: `${user.name} is waiting to join the meeting`,
+          icon: '/favicon.ico',
+          tag: 'waiting-room-notification'
+        }
+      );
+    }
+    
+    return {
+      waitingRoom: [...state.waitingRoom.filter(u => u.id !== user.id), user],
+      // Trigger notification for new users only
+      ...(isNewUser && { showWaitingRoomNotification: true })
+    };
+  }),
   removeFromWaitingRoom: (userId) => set((state) => ({
     waitingRoom: state.waitingRoom.filter(u => u.id !== userId)
   })),
@@ -199,6 +224,7 @@ export const useVideoStore = create<VideoState>((set) => ({
     waitingRoom: state.waitingRoom.filter(u => u.id !== userId)
   })),
   setHostStatus: (isHost) => set({ isHost }),
+  dismissWaitingRoomNotification: () => set({ showWaitingRoomNotification: false }),
   
   // Connection state
   isConnected: false,
@@ -220,6 +246,7 @@ export const useVideoStore = create<VideoState>((set) => ({
     participants: [],
     waitingRoom: [],
     isHost: false,
+    showWaitingRoomNotification: false,
     isConnected: false,
   }),
 }))

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Video, Users, Presentation, Home, Calendar, LogOut, User, ChevronDown } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import { useAuthStore } from '../store/useAuthStore'
+import { requestNotificationPermission } from '../utils/notifications'
 
 interface LayoutProps {
   children: ReactNode
@@ -22,6 +23,11 @@ const Layout = ({ children }: LayoutProps) => {
     { name: 'Group Call', href: '/group/new', icon: Users },
     { name: 'Webinar', href: '/webinar/new', icon: Presentation },
   ]
+
+  // Request notification permission on mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   // Close user menu when clicking outside
   useEffect(() => {

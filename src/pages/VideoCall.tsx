@@ -6,6 +6,7 @@ import VideoGrid from '../components/VideoGrid'
 import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
+import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -189,6 +190,7 @@ const VideoCall = () => {
 
   return (
     <div className="h-screen bg-gray-900 flex flex-col">
+      <WaitingRoomNotification />
       {/* Header */}
       <div className="bg-gray-800 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-4">
