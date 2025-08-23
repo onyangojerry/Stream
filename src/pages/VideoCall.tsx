@@ -5,7 +5,8 @@ import { useAuthStore } from '../store/useAuthStore'
 import VideoGrid from '../components/VideoGrid'
 import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
-import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check } from 'lucide-react'
+import WaitingRoom from '../components/WaitingRoom'
+import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const VideoCall = () => {
@@ -15,6 +16,7 @@ const VideoCall = () => {
   const [showTranscription, setShowTranscription] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showWaitingRoom, setShowWaitingRoom] = useState(false)
   const [copied, setCopied] = useState(false)
   
   const {
@@ -31,6 +33,10 @@ const VideoCall = () => {
     isRecording,
     startRecording,
     stopRecording,
+    isHost,
+    setHostStatus,
+    waitingRoom,
+    addToWaitingRoom,
     reset
   } = useVideoStore()
 
@@ -49,14 +55,26 @@ const VideoCall = () => {
 
   const initializeCall = async () => {
     try {
-      // Set a default user if none exists
       if (!currentUser) {
-        // User should be authenticated to access this page
         toast.error('Please log in to join a call')
         navigate('/login')
         return
       }
 
+      // Check if user is joining via link (not the host)
+      const urlParams = new URLSearchParams(window.location.search)
+      const isJoining = urlParams.get('join') === 'true'
+      
+      if (isJoining) {
+        // User is joining via link - add to waiting room
+        addToWaitingRoom(currentUser)
+        toast.success('Waiting for host approval to join the call')
+        return
+      }
+
+      // User is the host (starting the call)
+      setHostStatus(true)
+      
       // Get user media
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -64,7 +82,7 @@ const VideoCall = () => {
       })
       
       setLocalStream(stream)
-      toast.success('Connected to call')
+      toast.success('Call started! Share the link to invite others.')
     } catch (error) {
       console.error('Error accessing media devices:', error)
       toast.error('Failed to access camera/microphone')
@@ -134,7 +152,7 @@ const VideoCall = () => {
   }
 
   const getMeetingLink = () => {
-    return `${window.location.origin}/call/${roomId}`
+    return `${window.location.origin}/call/${roomId}?join=true`
   }
 
   const handleShareMeeting = () => {
@@ -182,6 +200,20 @@ const VideoCall = () => {
         </div>
         
         <div className="flex items-center space-x-2">
+          {isHost && (
+            <button
+              onClick={() => setShowWaitingRoom(!showWaitingRoom)}
+              className="control-button bg-yellow-600 hover:bg-yellow-700"
+              title="Waiting Room"
+            >
+              <Users className="w-5 h-5" />
+              {waitingRoom.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  {waitingRoom.length}
+                </span>
+              )}
+            </button>
+          )}
           <button
             onClick={handleShareMeeting}
             className="control-button bg-blue-600 hover:bg-blue-700"
@@ -203,7 +235,13 @@ const VideoCall = () => {
       <div className="flex-1 flex">
         {/* Video Area */}
         <div className="flex-1 relative">
-          <VideoGrid />
+          {!isHost && waitingRoom.length > 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <WaitingRoom />
+            </div>
+          ) : (
+            <VideoGrid />
+          )}
           
           {/* Floating Controls */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
@@ -269,6 +307,12 @@ const VideoCall = () => {
 
         {/* Side Panels */}
         <div className="flex flex-col space-y-2 p-4">
+          {showWaitingRoom && (
+            <div className="w-80 bg-white rounded-lg shadow-lg">
+              <WaitingRoom />
+            </div>
+          )}
+          
           {showChat && (
             <div className="w-80 bg-white rounded-lg shadow-lg">
               <ChatPanel />

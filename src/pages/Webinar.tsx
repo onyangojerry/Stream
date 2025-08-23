@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import VideoGrid from '../components/VideoGrid'
 import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
+import WaitingRoom from '../components/WaitingRoom'
 import { 
   PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, 
   MessageSquare, FileText, Settings, Users, Presentation, BarChart3, Share2, Copy, Check
@@ -20,6 +21,7 @@ const Webinar = () => {
   const [showParticipants, setShowParticipants] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showWaitingRoom, setShowWaitingRoom] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isPresenter, setIsPresenter] = useState(false)
   const [, setShowPoll] = useState(false)
@@ -39,6 +41,10 @@ const Webinar = () => {
     isRecording,
     startRecording,
     stopRecording,
+
+    setHostStatus,
+    waitingRoom,
+    addToWaitingRoom,
     reset
   } = useVideoStore()
 
@@ -59,9 +65,19 @@ const Webinar = () => {
   const initializeWebinar = async () => {
     try {
       if (!currentUser) {
-        // User should be authenticated to access this page
         toast.error('Please log in to join a webinar')
         navigate('/login')
+        return
+      }
+
+      // Check if user is joining via link (not the presenter)
+      const urlParams = new URLSearchParams(window.location.search)
+      const isJoining = urlParams.get('join') === 'true'
+      
+      if (isJoining) {
+        // User is joining via link - add to waiting room
+        addToWaitingRoom(currentUser)
+        toast.success('Waiting for presenter approval to join the webinar')
         return
       }
 
@@ -86,20 +102,17 @@ const Webinar = () => {
         toast.success(`Joined scheduled webinar: ${scheduledMeeting.title}`)
       }
 
-      // Check if user is presenter (first to join or has presenter role)
-      const urlParams = new URLSearchParams(window.location.search)
-      const role = urlParams.get('role')
-      setIsPresenter(role === 'presenter' || !currentUser)
+      // User is the presenter (starting the webinar)
+      setHostStatus(true)
+      setIsPresenter(true)
 
-      if (isPresenter) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        })
-        setLocalStream(stream)
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      })
+      setLocalStream(stream)
       
-      toast.success(`Joined webinar as ${isPresenter ? 'presenter' : 'attendee'}`)
+      toast.success('Webinar started! Share the link to invite attendees.')
     } catch (error) {
       console.error('Error initializing webinar:', error)
       toast.error('Failed to join webinar')
@@ -195,7 +208,7 @@ const Webinar = () => {
   }
 
   const getMeetingLink = () => {
-    return `${window.location.origin}/webinar/${roomId}`
+    return `${window.location.origin}/webinar/${roomId}?join=true`
   }
 
   const handleShareMeeting = () => {
@@ -251,6 +264,20 @@ const Webinar = () => {
         </div>
         
         <div className="flex items-center space-x-2">
+          {isPresenter && (
+            <button
+              onClick={() => setShowWaitingRoom(!showWaitingRoom)}
+              className="control-button bg-yellow-600 hover:bg-yellow-700"
+              title="Waiting Room"
+            >
+              <Users className="w-5 h-5" />
+              {waitingRoom.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  {waitingRoom.length}
+                </span>
+              )}
+            </button>
+          )}
           <button
             onClick={handleShareMeeting}
             className="control-button bg-blue-600 hover:bg-blue-700"
@@ -279,7 +306,13 @@ const Webinar = () => {
       <div className="flex-1 flex">
         {/* Video Area */}
         <div className="flex-1 relative">
-          <VideoGrid />
+          {!isPresenter && waitingRoom.length > 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <WaitingRoom />
+            </div>
+          ) : (
+            <VideoGrid />
+          )}
           
           {/* Floating Controls */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
@@ -357,6 +390,12 @@ const Webinar = () => {
 
         {/* Side Panels */}
         <div className="flex flex-col space-y-2 p-4">
+          {showWaitingRoom && (
+            <div className="w-80 bg-white rounded-lg shadow-lg">
+              <WaitingRoom />
+            </div>
+          )}
+          
           {showChat && (
             <div className="w-80 bg-white rounded-lg shadow-lg">
               <ChatPanel />

@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import VideoGrid from '../components/VideoGrid'
 import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
+import WaitingRoom from '../components/WaitingRoom'
 import { 
   PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, 
   MessageSquare, FileText, Settings, Users, UserPlus, UserMinus, 
@@ -21,6 +22,7 @@ const GroupCall = () => {
   const [showParticipants, setShowParticipants] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showWaitingRoom, setShowWaitingRoom] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isHost, setIsHost] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -41,6 +43,10 @@ const GroupCall = () => {
     isRecording,
     startRecording,
     stopRecording,
+
+    setHostStatus,
+    waitingRoom,
+    addToWaitingRoom,
     reset
   } = useVideoStore()
 
@@ -61,9 +67,19 @@ const GroupCall = () => {
   const initializeGroupCall = async () => {
     try {
       if (!currentUser) {
-        // User should be authenticated to access this page
         toast.error('Please log in to join a call')
         navigate('/login')
+        return
+      }
+
+      // Check if user is joining via link (not the host)
+      const urlParams = new URLSearchParams(window.location.search)
+      const isJoining = urlParams.get('join') === 'true'
+      
+      if (isJoining) {
+        // User is joining via link - add to waiting room
+        addToWaitingRoom(currentUser)
+        toast.success('Waiting for host approval to join the group call')
         return
       }
 
@@ -88,10 +104,9 @@ const GroupCall = () => {
         toast.success(`Joined scheduled meeting: ${scheduledMeeting.title}`)
       }
 
-      // Check if user is host (first to join or has host role)
-      const urlParams = new URLSearchParams(window.location.search)
-      const role = urlParams.get('role')
-      setIsHost(role === 'host' || !currentUser)
+      // User is the host (starting the call)
+      setHostStatus(true)
+      setIsHost(true)
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -99,7 +114,7 @@ const GroupCall = () => {
       })
       setLocalStream(stream)
       
-      toast.success(`Joined group call as ${isHost ? 'host' : 'participant'}`)
+      toast.success('Group call started! Share the link to invite others.')
     } catch (error) {
       console.error('Error initializing group call:', error)
       toast.error('Failed to join group call')
@@ -198,7 +213,7 @@ const GroupCall = () => {
   }
 
   const getMeetingLink = () => {
-    return `${window.location.origin}/group/${roomId}`
+    return `${window.location.origin}/group/${roomId}?join=true`
   }
 
   const handleShareMeeting = () => {
@@ -254,6 +269,20 @@ const GroupCall = () => {
         </div>
         
         <div className="flex items-center space-x-2">
+          {isHost && (
+            <button
+              onClick={() => setShowWaitingRoom(!showWaitingRoom)}
+              className="control-button bg-yellow-600 hover:bg-yellow-700"
+              title="Waiting Room"
+            >
+              <Users className="w-5 h-5" />
+              {waitingRoom.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  {waitingRoom.length}
+                </span>
+              )}
+            </button>
+          )}
           <button
             onClick={handleShareMeeting}
             className="control-button bg-blue-600 hover:bg-blue-700"
@@ -289,7 +318,13 @@ const GroupCall = () => {
       <div className="flex-1 flex">
         {/* Video Area */}
         <div className="flex-1 relative">
-          <VideoGrid />
+          {!isHost && waitingRoom.length > 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <WaitingRoom />
+            </div>
+          ) : (
+            <VideoGrid />
+          )}
           
           {/* Floating Controls */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
@@ -375,6 +410,12 @@ const GroupCall = () => {
 
         {/* Side Panels */}
         <div className="flex flex-col space-y-2 p-4">
+          {showWaitingRoom && (
+            <div className="w-80 bg-white rounded-lg shadow-lg">
+              <WaitingRoom />
+            </div>
+          )}
+          
           {showChat && (
             <div className="w-80 bg-white rounded-lg shadow-lg">
               <ChatPanel />

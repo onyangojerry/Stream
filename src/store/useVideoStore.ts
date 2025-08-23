@@ -55,9 +55,16 @@ interface VideoState {
   
   // Participants
   participants: User[];
+  waitingRoom: User[];
+  isHost: boolean;
   addParticipant: (participant: User) => void;
   removeParticipant: (userId: string) => void;
   updateParticipant: (userId: string, updates: Partial<User>) => void;
+  addToWaitingRoom: (user: User) => void;
+  removeFromWaitingRoom: (userId: string) => void;
+  approveAttendee: (userId: string) => void;
+  rejectAttendee: (userId: string) => void;
+  setHostStatus: (isHost: boolean) => void;
   
   // Connection state
   isConnected: boolean;
@@ -159,6 +166,8 @@ export const useVideoStore = create<VideoState>((set) => ({
   
   // Participants
   participants: [],
+  waitingRoom: [],
+  isHost: false,
   addParticipant: (participant) => set((state) => ({
     participants: [...state.participants.filter(p => p.id !== participant.id), participant]
   })),
@@ -170,6 +179,26 @@ export const useVideoStore = create<VideoState>((set) => ({
       p.id === userId ? { ...p, ...updates } : p
     )
   })),
+  addToWaitingRoom: (user) => set((state) => ({
+    waitingRoom: [...state.waitingRoom.filter(u => u.id !== user.id), user]
+  })),
+  removeFromWaitingRoom: (userId) => set((state) => ({
+    waitingRoom: state.waitingRoom.filter(u => u.id !== userId)
+  })),
+  approveAttendee: (userId) => set((state) => {
+    const user = state.waitingRoom.find(u => u.id === userId);
+    if (user) {
+      return {
+        participants: [...state.participants, user],
+        waitingRoom: state.waitingRoom.filter(u => u.id !== userId)
+      };
+    }
+    return state;
+  }),
+  rejectAttendee: (userId) => set((state) => ({
+    waitingRoom: state.waitingRoom.filter(u => u.id !== userId)
+  })),
+  setHostStatus: (isHost) => set({ isHost }),
   
   // Connection state
   isConnected: false,
@@ -189,6 +218,8 @@ export const useVideoStore = create<VideoState>((set) => ({
     screenShare: null,
     isRecording: false,
     participants: [],
+    waitingRoom: [],
+    isHost: false,
     isConnected: false,
   }),
 }))
