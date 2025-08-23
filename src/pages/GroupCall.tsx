@@ -9,7 +9,7 @@ import TranscriptionPanel from '../components/TranscriptionPanel'
 import { 
   PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, 
   MessageSquare, FileText, Settings, Users, UserPlus, UserMinus, 
-  Grid, List, MoreHorizontal, Share2, Copy, Check
+  Grid, List, Share2, Copy, Check
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 

@@ -28,6 +28,7 @@ const Webinar = () => {
     setCurrentRoom,
     localStream,
     setLocalStream,
+    remoteStreams,
     isAudioEnabled,
     isVideoEnabled,
     isScreenSharing,
