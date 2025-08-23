@@ -23,6 +23,7 @@ const VideoCall = () => {
   const [showWaitingRoom, setShowWaitingRoom] = useState(false)
   const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isApproved, setIsApproved] = useState(false)
   
   const {
     setCurrentRoom,
@@ -41,6 +42,7 @@ const VideoCall = () => {
     isHost,
     setHostStatus,
     waitingRoom,
+    participants,
     addToWaitingRoom,
 
     startMeeting,
@@ -61,6 +63,28 @@ const VideoCall = () => {
       cleanupCall()
     }
   }, [roomId])
+
+  // Monitor if user gets approved from waiting room
+  useEffect(() => {
+    if (currentUser && !isHost) {
+      const isUserApproved = participants.some(p => p.id === currentUser.id)
+      
+      if (isUserApproved && !isApproved) {
+        setIsApproved(true)
+        toast.success('You have been approved! Joining the meeting...')
+        // Initialize media and join the call
+        setTimeout(async () => {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            setLocalStream(stream)
+          } catch (error) {
+            console.error('Error accessing media:', error)
+            toast.error('Could not access camera/microphone')
+          }
+        }, 1000)
+      }
+    }
+  }, [participants, waitingRoom, currentUser, isHost, isApproved])
 
   const initializeCall = async () => {
     try {
@@ -256,7 +280,7 @@ const VideoCall = () => {
       <div className="flex-1 flex">
         {/* Video Area */}
         <div className="flex-1 relative">
-          {!isHost && waitingRoom.length > 0 ? (
+          {(!isHost && waitingRoom.some(u => u.id === currentUser?.id) && !isApproved) ? (
             <div className="h-full flex items-center justify-center">
               <WaitingRoom />
             </div>

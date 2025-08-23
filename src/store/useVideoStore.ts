@@ -227,6 +227,19 @@ export const useVideoStore = create<VideoState>((set) => ({
   approveAttendee: (userId) => set((state) => {
     const user = state.waitingRoom.find(u => u.id === userId);
     if (user) {
+      // Show browser notification to approved user
+      if (!state.isHost && state.currentUser?.id === userId) {
+        showBrowserNotification(
+          'Welcome to the Meeting!',
+          {
+            body: 'You have been approved to join the meeting',
+            icon: '/favicon.ico',
+            tag: 'approval-notification'
+          }
+        );
+        playNotificationSound();
+      }
+      
       return {
         participants: [...state.participants, user],
         waitingRoom: state.waitingRoom.filter(u => u.id !== userId)
