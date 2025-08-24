@@ -67,6 +67,8 @@ const MeetingScheduler = () => {
       attendeeLimit: formData.attendeeLimit,
       roomId: '',
       isActive: false,
+      isStarted: false,
+      isEnded: false,
       currentAttendees: 0,
       settings: formData.settings,
     }

@@ -14,6 +14,11 @@ export interface ScheduledMeeting {
   currentAttendees: number
   roomId: string
   isActive: boolean
+  isStarted: boolean
+  isEnded: boolean
+  actualStartTime?: Date
+  actualEndTime?: Date
+  duration?: number // in seconds
   createdAt: Date
   updatedAt: Date
   settings: {
@@ -28,14 +33,19 @@ export interface ScheduledMeeting {
 
 interface SchedulerState {
   scheduledMeetings: ScheduledMeeting[]
+  activeMeetings: ScheduledMeeting[]
   addMeeting: (meeting: Omit<ScheduledMeeting, 'id' | 'createdAt' | 'updatedAt'>) => void
   updateMeeting: (id: string, updates: Partial<ScheduledMeeting>) => void
   deleteMeeting: (id: string) => void
   getMeetingById: (id: string) => ScheduledMeeting | undefined
   getUpcomingMeetings: () => ScheduledMeeting[]
   getPastMeetings: () => ScheduledMeeting[]
+  getActiveMeetings: () => ScheduledMeeting[]
+  startMeeting: (meetingId: string) => void
+  endMeeting: (meetingId: string) => void
   joinMeeting: (meetingId: string) => boolean
   leaveMeeting: (meetingId: string) => void
+  updateMeetingDuration: (meetingId: string) => void
 }
 
 const generateRoomId = (): string => {
@@ -46,6 +56,7 @@ export const useSchedulerStore = create<SchedulerState>()(
   persist(
     (set, get) => ({
       scheduledMeetings: [],
+      activeMeetings: [],
       
       addMeeting: (meetingData) => {
         const newMeeting: ScheduledMeeting = {
@@ -54,6 +65,8 @@ export const useSchedulerStore = create<SchedulerState>()(
           roomId: generateRoomId(),
           currentAttendees: 0,
           isActive: false,
+          isStarted: false,
+          isEnded: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -91,10 +104,55 @@ export const useSchedulerStore = create<SchedulerState>()(
       },
       
       getPastMeetings: () => {
-        const now = new Date()
         return get().scheduledMeetings
-          .filter(meeting => meeting.endTime < now)
-          .sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
+          .filter(meeting => meeting.isEnded)
+          .sort((a, b) => (b.actualEndTime || b.endTime).getTime() - (a.actualEndTime || a.endTime).getTime())
+      },
+
+      getActiveMeetings: () => {
+        const activeMeetings = get().scheduledMeetings
+          .filter(meeting => meeting.isStarted && !meeting.isEnded)
+          .sort((a, b) => (a.actualStartTime || a.startTime).getTime() - (b.actualStartTime || b.startTime).getTime())
+        
+        // Update the activeMeetings state
+        set({ activeMeetings })
+        return activeMeetings
+      },
+
+      startMeeting: (meetingId) => {
+        const meeting = get().getMeetingById(meetingId)
+        if (!meeting) return
+        
+        get().updateMeeting(meetingId, {
+          isStarted: true,
+          isActive: true,
+          actualStartTime: new Date()
+        })
+      },
+
+      endMeeting: (meetingId) => {
+        const meeting = get().getMeetingById(meetingId)
+        if (!meeting) return
+        
+        const actualEndTime = new Date()
+        const duration = meeting.actualStartTime 
+          ? Math.floor((actualEndTime.getTime() - meeting.actualStartTime.getTime()) / 1000)
+          : 0
+        
+        get().updateMeeting(meetingId, {
+          isEnded: true,
+          isActive: false,
+          actualEndTime,
+          duration
+        })
+      },
+
+      updateMeetingDuration: (meetingId) => {
+        const meeting = get().getMeetingById(meetingId)
+        if (!meeting || !meeting.isStarted || meeting.isEnded || !meeting.actualStartTime) return
+        
+        const duration = Math.floor((new Date().getTime() - meeting.actualStartTime.getTime()) / 1000)
+        get().updateMeeting(meetingId, { duration })
       },
       
       joinMeeting: (meetingId) => {

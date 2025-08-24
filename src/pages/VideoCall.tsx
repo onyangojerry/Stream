@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useVideoStore } from '../store/useVideoStore'
 import { useAuthStore } from '../store/useAuthStore'
+import { useSchedulerStore } from '../store/useSchedulerStore'
 import VideoGrid from '../components/VideoGrid'
 import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
@@ -52,6 +53,7 @@ const VideoCall = () => {
   } = useVideoStore()
 
   const { user: currentUser } = useAuthStore()
+  const { getMeetingById, startMeeting: startScheduledMeeting, endMeeting: endScheduledMeeting } = useSchedulerStore()
 
   useEffect(() => {
     if (roomId) {
@@ -112,6 +114,12 @@ const VideoCall = () => {
       setHostStatus(true)
       startMeeting()
       
+      // Check if this is a scheduled meeting
+      const scheduledMeeting = getMeetingById(roomId || '')
+      if (scheduledMeeting && scheduledMeeting.hostId === currentUser?.id) {
+        startScheduledMeeting(scheduledMeeting.id)
+      }
+      
       // Get user media
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -144,6 +152,12 @@ const VideoCall = () => {
 
   const handleEndCall = () => {
     if (isHost) {
+      // Check if this is a scheduled meeting and end it
+      const scheduledMeeting = getMeetingById(roomId || '')
+      if (scheduledMeeting && scheduledMeeting.hostId === currentUser?.id) {
+        endScheduledMeeting(scheduledMeeting.id)
+      }
+      
       endMeeting()
       cleanupCall()
       navigate('/')

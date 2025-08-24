@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Video, Users, Presentation, Calendar, ArrowRight, Clock, Share2, Copy, Check } from 'lucide-react'
+import { Video, Users, Presentation, Calendar, ArrowRight, Share2, Copy, Check } from 'lucide-react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import MeetingConfirmationModal from '../components/MeetingConfirmationModal'
+import RealMeetings from '../components/RealMeetings'
 
 const Home = () => {
   const navigate = useNavigate()
@@ -51,32 +52,7 @@ const Home = () => {
     }
   ]
 
-  const recentMeetings = [
-    {
-      id: '1',
-      title: 'Team Standup',
-      type: 'Group Call',
-      date: '2024-01-15',
-      time: '09:00 AM',
-      participants: 8
-    },
-    {
-      id: '2',
-      title: 'Client Presentation',
-      type: 'Webinar',
-      date: '2024-01-14',
-      time: '02:00 PM',
-      participants: 25
-    },
-    {
-      id: '3',
-      title: 'Design Review',
-      type: 'One-on-One',
-      date: '2024-01-13',
-      time: '11:00 AM',
-      participants: 2
-    }
-  ]
+
 
   const handleJoinMeeting = () => {
     if (!roomId.trim()) {
@@ -247,39 +223,15 @@ const Home = () => {
         })}
       </div>
 
-      {/* Recent Meetings */}
+      {/* Real Meetings */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
         className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6"
       >
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Meetings</h2>
-        <div className="space-y-3">
-          {recentMeetings.map((meeting) => (
-            <div key={meeting.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2 sm:space-y-0">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">{meeting.title}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{meeting.type}</p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                <span className="flex items-center space-x-1">
-                  <Clock className="w-4 h-4" />
-                  <span>{meeting.time}</span>
-                </span>
-                <span>{meeting.participants} participants</span>
-                <button className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
-                  Rejoin
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Your Meetings</h2>
+        <RealMeetings />
       </motion.div>
 
       {/* Meeting Confirmation Modal */}
