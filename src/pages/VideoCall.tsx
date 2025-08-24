@@ -290,7 +290,7 @@ const VideoCall = () => {
       <div className="flex-1 flex">
         {/* Video Area */}
         <div className="flex-1 relative">
-          {(!isHost && waitingRoom.some(u => u.id === currentUser?.id) && !isApproved) ? (
+          {(!isHost && !isApproved) ? (
             <div className="h-full flex items-center justify-center">
               <WaitingRoom />
             </div>
