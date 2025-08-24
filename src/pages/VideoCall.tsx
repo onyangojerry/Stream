@@ -290,13 +290,7 @@ const VideoCall = () => {
       <div className="flex-1 flex">
         {/* Video Area */}
         <div className="flex-1 relative">
-          {(!isHost && !isApproved) ? (
-            <div className="h-full flex items-center justify-center">
-              <WaitingRoom />
-            </div>
-          ) : (
-            <VideoGrid />
-          )}
+          <VideoGrid />
           
           {/* Floating Controls */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">

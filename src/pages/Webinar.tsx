@@ -246,13 +246,7 @@ const Webinar = () => {
 
       {/* Main Content */}
       <div className="pt-20 pb-32 px-4">
-        {(!isPresenter) ? (
-          <div className="h-full flex items-center justify-center">
-            <WaitingRoom />
-          </div>
-        ) : (
-          <VideoGrid />
-        )}
+        <VideoGrid />
         
         {/* Floating Controls */}
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
