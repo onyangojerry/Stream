@@ -8,6 +8,8 @@ import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import WaitingRoomTest from '../components/WaitingRoomTest'
+import WaitingRoomChat from '../components/WaitingRoomChat'
+import NotificationDebug from '../components/NotificationDebug'
 import Whiteboard from '../components/Whiteboard'
 import ControlButton from '../components/ControlButton'
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
@@ -120,6 +122,14 @@ const VideoCall = () => {
       
       setLocalStream(stream)
       toast.success('Call started! Share the link to invite others.')
+      
+      // Request notification permission for host
+      if ('Notification' in window && Notification.permission === 'default') {
+        const permission = await Notification.requestPermission()
+        if (permission === 'granted') {
+          console.log('Notification permission granted')
+        }
+      }
     } catch (error) {
       console.error('Error accessing media devices:', error)
       toast.error('Failed to access camera/microphone')
@@ -236,6 +246,8 @@ const VideoCall = () => {
     <div className="h-screen bg-gray-900 flex flex-col">
       <WaitingRoomNotification />
       <WaitingRoomTest />
+      <NotificationDebug />
+      <WaitingRoomChat />
       {/* Header */}
       <div className="bg-gray-800 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-4">

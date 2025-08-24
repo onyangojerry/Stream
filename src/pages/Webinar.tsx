@@ -8,6 +8,7 @@ import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
+import WaitingRoomChat from '../components/WaitingRoomChat'
 import Whiteboard from '../components/Whiteboard'
 import ControlButton from '../components/ControlButton'
 import { 
@@ -407,6 +408,7 @@ const Webinar = () => {
       )}
 
       <WaitingRoomNotification />
+      <WaitingRoomChat />
     </div>
   )
 }

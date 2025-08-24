@@ -214,7 +214,7 @@ export const useVideoStore = create<VideoState>((set) => ({
     
     const newState = {
       waitingRoom: [...state.waitingRoom.filter(u => u.id !== user.id), user],
-      // Trigger notification for new users only
+      // Always trigger notification for new users
       ...(isNewUser && { showWaitingRoomNotification: true })
     };
     
