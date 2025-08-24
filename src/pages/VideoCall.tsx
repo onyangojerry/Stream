@@ -8,7 +8,6 @@ import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import WaitingRoomChat from '../components/WaitingRoomChat'
-import NotificationDebug from '../components/NotificationDebug'
 import Whiteboard from '../components/Whiteboard'
 import ControlButton from '../components/ControlButton'
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
@@ -244,7 +243,6 @@ const VideoCall = () => {
   return (
     <div className="h-screen bg-gray-900 flex flex-col">
       <WaitingRoomNotification />
-      <NotificationDebug />
       <WaitingRoomChat />
       {/* Header */}
       <div className="bg-gray-800 px-6 py-3 flex items-center justify-between">
