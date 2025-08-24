@@ -7,7 +7,6 @@ import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
-import WaitingRoomTest from '../components/WaitingRoomTest'
 import WaitingRoomChat from '../components/WaitingRoomChat'
 import NotificationDebug from '../components/NotificationDebug'
 import Whiteboard from '../components/Whiteboard'
@@ -245,7 +244,6 @@ const VideoCall = () => {
   return (
     <div className="h-screen bg-gray-900 flex flex-col">
       <WaitingRoomNotification />
-      <WaitingRoomTest />
       <NotificationDebug />
       <WaitingRoomChat />
       {/* Header */}
