@@ -11,6 +11,7 @@ import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import WaitingRoomChat from '../components/WaitingRoomChat'
 import Whiteboard from '../components/Whiteboard'
 import ControlButton from '../components/ControlButton'
+import CallDashboard from '../components/CallDashboard'
 import { 
   PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, 
   MessageSquare, FileText, Settings, Users, Share2, Copy, Check
@@ -28,6 +29,7 @@ const GroupCall = () => {
   const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isHost, setIsHost] = useState(false)
+  const [isCallStarted, setIsCallStarted] = useState(false)
   
   const {
     setCurrentRoom,
@@ -59,7 +61,7 @@ const GroupCall = () => {
   useEffect(() => {
     if (roomId) {
       setCurrentRoom(roomId)
-      initializeGroupCall()
+      // Don't automatically initialize call - wait for user to start it
     }
 
     return () => {
@@ -99,6 +101,7 @@ const GroupCall = () => {
       setIsHost(true)
       setHostStatus(true)
       startMeeting()
+      setIsCallStarted(true)
       
       toast.success('Group call started! Share the link to invite others.')
     } catch (error) {
@@ -201,6 +204,17 @@ const GroupCall = () => {
 
   if (!currentUser) {
     return <div>Loading...</div>
+  }
+
+  // Show dashboard if call hasn't started yet
+  if (!isCallStarted) {
+    return (
+      <CallDashboard
+        roomId={roomId || ''}
+        callType="group"
+        onStartCall={initializeGroupCall}
+      />
+    )
   }
 
   return (

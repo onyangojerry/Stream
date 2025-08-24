@@ -11,6 +11,7 @@ import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import WaitingRoomChat from '../components/WaitingRoomChat'
 import Whiteboard from '../components/Whiteboard'
 import ControlButton from '../components/ControlButton'
+import CallDashboard from '../components/CallDashboard'
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -25,6 +26,7 @@ const VideoCall = () => {
   const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isApproved, setIsApproved] = useState(false)
+  const [isCallStarted, setIsCallStarted] = useState(false)
   
   const {
     setCurrentRoom,
@@ -58,7 +60,7 @@ const VideoCall = () => {
   useEffect(() => {
     if (roomId) {
       setCurrentRoom(roomId)
-      initializeCall()
+      // Don't automatically initialize call - wait for user to start it
     }
 
     return () => {
@@ -127,6 +129,7 @@ const VideoCall = () => {
       })
       
       setLocalStream(stream)
+      setIsCallStarted(true)
       toast.success('Call started! Share the link to invite others.')
       
       // Request notification permission for host
@@ -252,6 +255,17 @@ const VideoCall = () => {
     } else {
       handleCopyLink()
     }
+  }
+
+  // Show dashboard if call hasn't started yet
+  if (!isCallStarted) {
+    return (
+      <CallDashboard
+        roomId={roomId || ''}
+        callType="one-on-one"
+        onStartCall={initializeCall}
+      />
+    )
   }
 
   return (
