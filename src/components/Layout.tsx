@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useRef } from 'react'
+import { ReactNode, useState, useEffect, useRef, memo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Video, Users, Presentation, Home, Calendar, LogOut, User, ChevronDown } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
@@ -9,7 +9,7 @@ interface LayoutProps {
   children: ReactNode
 }
 
-const Layout = ({ children }: LayoutProps) => {
+const Layout = memo(({ children }: LayoutProps) => {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
@@ -44,7 +44,7 @@ const Layout = ({ children }: LayoutProps) => {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -173,6 +173,6 @@ const Layout = ({ children }: LayoutProps) => {
       </main>
     </div>
   )
-}
+})
 
 export default Layout
