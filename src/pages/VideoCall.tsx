@@ -9,7 +9,7 @@ import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import WaitingRoomChat from '../components/WaitingRoomChat'
-import Whiteboard from '../components/Whiteboard'
+import CollaborativeDocument from '../components/CollaborativeDocument'
 import ControlButton from '../components/ControlButton'
 import CallDashboard from '../components/CallDashboard'
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
@@ -23,7 +23,7 @@ const VideoCall = () => {
   const [showSettings, setShowSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showWaitingRoom, setShowWaitingRoom] = useState(false)
-  const [showWhiteboard, setShowWhiteboard] = useState(false)
+  const [showDocument, setShowDocument] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isApproved, setIsApproved] = useState(false)
   const [isCallStarted, setIsCallStarted] = useState(false)
@@ -369,13 +369,13 @@ const VideoCall = () => {
                 <FileText />
               </ControlButton>
               
-              <ControlButton
-                onClick={() => setShowWhiteboard(!showWhiteboard)}
-                title="Open Collaborative Whiteboard"
-                variant={showWhiteboard ? 'active' : 'default'}
-              >
-                <FileText />
-              </ControlButton>
+                        <ControlButton
+            onClick={() => setShowDocument(!showDocument)}
+            title="Open Collaborative Document"
+            variant={showDocument ? 'active' : 'default'}
+          >
+            <FileText />
+          </ControlButton>
               
               <ControlButton
                 onClick={handleEndCall}
@@ -412,13 +412,10 @@ const VideoCall = () => {
         </div>
       </div>
 
-      {/* Collaborative Whiteboard */}
-      <Whiteboard
-        isOpen={showWhiteboard}
-        onClose={() => setShowWhiteboard(false)}
-        currentUser={currentUser}
-        isHost={isHost}
-      />
+      {/* Collaborative Document */}
+      {showDocument && (
+        <CollaborativeDocument />
+      )}
 
       {/* Share Meeting Modal */}
       {showShareModal && (

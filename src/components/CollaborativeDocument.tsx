@@ -1,364 +1,625 @@
 import { useState, useEffect, useRef } from 'react'
-import { useDocumentStore } from '../store/useDocumentStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { 
-  FileText, 
-  Edit, 
-  Save, 
-  Plus, 
-  Check, 
-  X, 
-  Shield,
-  Clock,
-  User
+  Save, Download, Upload, Trash2, FileText, Type, Bold, Italic, 
+  Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, 
+  AlignJustify, List, ListOrdered, Heading1, Heading2, Heading3,
+  Minus, X, Maximize2, Minimize2
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
+
+interface DocumentContent {
+  id: string
+  title: string
+  content: string
+  createdAt: Date
+  updatedAt: Date
+  createdBy: string
+  collaborators: string[]
+  isPublic: boolean
+  template?: string
+}
+
+interface DocumentState {
+  documents: DocumentContent[]
+  currentDocument: DocumentContent | null
+  isEditing: boolean
+  showCollaborators: boolean
+  position: { x: number; y: number }
+  size: { width: number; height: number }
+  isMinimized: boolean
+  isMaximized: boolean
+}
 
 const CollaborativeDocument = () => {
   const { user: currentUser } = useAuthStore()
-  const {
-    documents,
-    currentDocument,
-    documentChanges,
-    documentPermissions,
-    createDocument,
-    updateDocument,
-    setCurrentDocument,
-    addDocumentChange,
-    approveChange,
-    rejectChange,
 
-    revokePermission,
-    hasPermission
-  } = useDocumentStore()
+  const [state, setState] = useState<DocumentState>({
+    documents: [],
+    currentDocument: null,
+    isEditing: false,
+    showCollaborators: false,
+    position: { x: 50, y: 50 },
+    size: { width: 800, height: 600 },
+    isMinimized: false,
+    isMaximized: false
+  })
 
   const [showDocumentList, setShowDocumentList] = useState(false)
-  const [showPermissions, setShowPermissions] = useState(false)
-  const [showChanges, setShowChanges] = useState(false)
-  const [newDocumentTitle, setNewDocumentTitle] = useState('')
-  const [isEditing, setIsEditing] = useState(false)
-  const [localContent, setLocalContent] = useState('')
-  const editorRef = useRef<HTMLTextAreaElement>(null)
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [fontSize, setFontSize] = useState(16)
+  const [fontFamily, setFontFamily] = useState('Arial')
+  const [textColor, setTextColor] = useState('#000000')
+  const [backgroundColor, setBackgroundColor] = useState('#ffffff')
+  const [isDragging, setIsDragging] = useState(false)
 
+  const editorRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Font options
+  const fonts = [
+    'Arial', 'Helvetica', 'Times New Roman', 'Georgia', 'Verdana', 
+    'Courier New', 'Impact', 'Comic Sans MS', 'Tahoma', 'Trebuchet MS'
+  ]
+
+  // Templates
+  const templates = [
+    { id: 'blank', name: 'Blank Document', icon: FileText },
+    { id: 'meeting-notes', name: 'Meeting Notes', icon: FileText },
+    { id: 'presentation', name: 'Presentation', icon: FileText },
+    { id: 'agenda', name: 'Meeting Agenda', icon: FileText }
+  ]
+
+  // Load documents from localStorage on mount
   useEffect(() => {
-    if (currentDocument) {
-      setLocalContent(currentDocument.content)
+    const savedDocuments = localStorage.getItem('striim-documents')
+    if (savedDocuments) {
+      try {
+        const documents = JSON.parse(savedDocuments)
+        setState(prev => ({ ...prev, documents }))
+      } catch (error) {
+        console.error('Error loading documents:', error)
+      }
     }
-  }, [currentDocument])
+  }, [])
 
-  const handleCreateDocument = () => {
-    if (!newDocumentTitle.trim() || !currentUser) return
-    
-    createDocument(newDocumentTitle, currentUser.id)
-    setNewDocumentTitle('')
-    setShowDocumentList(false)
-    toast.success('Document created successfully!')
+  // Save documents to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('striim-documents', JSON.stringify(state.documents))
+  }, [state.documents])
+
+  const createNewDocument = (template?: string) => {
+    if (!currentUser) {
+      toast.error('Please log in to create documents')
+      return
+    }
+
+    const newDocument: DocumentContent = {
+      id: `doc-${Date.now()}`,
+      title: `New Document ${state.documents.length + 1}`,
+      content: getTemplateContent(template),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: currentUser.id,
+      collaborators: [currentUser.id],
+      isPublic: false,
+      template
+    }
+
+    setState(prev => ({
+      ...prev,
+      documents: [...prev.documents, newDocument],
+      currentDocument: newDocument,
+      isEditing: true
+    }))
+
+    toast.success('New document created!')
   }
 
-  const handleSaveDocument = () => {
-    if (!currentDocument || !currentUser) return
-    
-    if (hasPermission(currentUser.id, 'edit')) {
-      updateDocument(currentDocument.id, localContent)
-      setIsEditing(false)
-      toast.success('Document saved!')
-    } else {
-      // Submit change for approval
-      addDocumentChange({
-        documentId: currentDocument.id,
-        userId: currentUser.id,
-        userName: currentUser.name,
-        change: {
-          type: 'insert',
-          position: 0,
-          text: localContent
-        }
-      })
-      setIsEditing(false)
-      toast.success('Changes submitted for approval!')
+  const getTemplateContent = (template?: string): string => {
+    switch (template) {
+      case 'meeting-notes':
+        return `
+          <h1>Meeting Notes</h1>
+          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <p><strong>Attendees:</strong></p>
+          <ul><li></li></ul>
+          <h2>Agenda</h2>
+          <ol><li></li></ol>
+          <h2>Action Items</h2>
+          <ul><li></li></ul>
+        `
+      case 'presentation':
+        return `
+          <h1>Presentation Title</h1>
+          <h2>Slide 1</h2>
+          <p>Your content here...</p>
+          <h2>Slide 2</h2>
+          <p>More content...</p>
+        `
+      case 'agenda':
+        return `
+          <h1>Meeting Agenda</h1>
+          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <p><strong>Time:</strong></p>
+          <p><strong>Location:</strong></p>
+          <h2>Agenda Items</h2>
+          <ol><li></li></ol>
+        `
+      default:
+        return '<p>Start typing your document...</p>'
     }
   }
 
-  const handleApproveChange = (changeId: string) => {
-    approveChange(changeId)
-    toast.success('Change approved!')
+  const saveDocument = () => {
+    if (!state.currentDocument || !editorRef.current) return
+
+    const updatedDocument = {
+      ...state.currentDocument,
+      content: editorRef.current.innerHTML,
+      updatedAt: new Date()
+    }
+
+    setState(prev => ({
+      ...prev,
+      documents: prev.documents.map(doc => 
+        doc.id === updatedDocument.id ? updatedDocument : doc
+      ),
+      currentDocument: updatedDocument
+    }))
+
+    toast.success('Document saved!')
   }
 
-  const handleRejectChange = (changeId: string) => {
-    rejectChange(changeId)
-    toast.success('Change rejected!')
+  const deleteDocument = (documentId: string) => {
+    setState(prev => ({
+      ...prev,
+      documents: prev.documents.filter(doc => doc.id !== documentId),
+      currentDocument: prev.currentDocument?.id === documentId ? null : prev.currentDocument
+    }))
+
+    toast.success('Document deleted!')
   }
 
+  const loadDocument = (document: DocumentContent) => {
+    setState(prev => ({
+      ...prev,
+      currentDocument: document,
+      isEditing: true
+    }))
+  }
 
+  const exportDocument = () => {
+    if (!state.currentDocument) return
 
-  const pendingChanges = documentChanges.filter(change => change.pending)
-  const canEdit = currentUser && currentDocument && hasPermission(currentUser.id, 'edit')
-  const canApprove = currentUser && hasPermission(currentUser.id, 'approve')
+    const element = document.createElement('a')
+    const file = new Blob([state.currentDocument.content], { type: 'text/html' })
+    element.href = URL.createObjectURL(file)
+    element.download = `${state.currentDocument.title}.html`
+    document.body.appendChild(element)
+    element.click()
+    document.body.removeChild(element)
+
+    toast.success('Document exported!')
+  }
+
+  const importDocument = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !currentUser) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const content = e.target?.result as string
+      const newDocument: DocumentContent = {
+        id: `doc-${Date.now()}`,
+        title: file.name.replace('.html', ''),
+        content,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: currentUser.id,
+        collaborators: [currentUser.id],
+        isPublic: false
+      }
+
+      setState(prev => ({
+        ...prev,
+        documents: [...prev.documents, newDocument],
+        currentDocument: newDocument,
+        isEditing: true
+      }))
+
+      toast.success('Document imported!')
+    }
+    reader.readAsText(file)
+  }
+
+  const applyFormat = (command: string, value?: string) => {
+    if (!editorRef.current) return
+    document.execCommand(command, false, value)
+    editorRef.current.focus()
+  }
+
+  const toggleMinimize = () => {
+    setState(prev => ({ ...prev, isMinimized: !prev.isMinimized }))
+  }
+
+  const toggleMaximize = () => {
+    setState(prev => ({ ...prev, isMaximized: !prev.isMaximized }))
+  }
+
+  if (state.isMinimized) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="fixed bottom-4 right-4 z-50"
+        style={{ left: state.position.x, top: state.position.y }}
+      >
+        <button
+          onClick={toggleMinimize}
+          className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg shadow-lg flex items-center space-x-2"
+        >
+          <FileText className="w-5 h-5" />
+          <span>Document Editor</span>
+        </button>
+      </motion.div>
+    )
+  }
 
   return (
-    <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg flex flex-col">
+    <motion.div
+      ref={containerRef}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ 
+        opacity: 1, 
+        scale: 1,
+        width: state.isMaximized ? '100vw' : state.size.width,
+        height: state.isMaximized ? '100vh' : state.size.height
+      }}
+      className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+      style={{
+        left: state.isMaximized ? 0 : state.position.x,
+        top: state.isMaximized ? 0 : state.position.y
+      }}
+      drag={isDragging}
+      dragMomentum={false}
+    >
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <FileText className="w-6 h-6 text-blue-600" />
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Collaborative Document
-              </h2>
-              {currentDocument && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {currentDocument.title} • v{currentDocument.version}
-                </p>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-2">
+      <div 
+        className="bg-gray-100 dark:bg-gray-700 px-4 py-2 flex items-center justify-between cursor-move"
+        onMouseDown={() => setIsDragging(true)}
+        onMouseUp={() => setIsDragging(false)}
+      >
+        <div className="flex items-center space-x-3">
+          <FileText className="w-5 h-5 text-blue-600" />
+          <span className="font-semibold text-gray-900 dark:text-white">
+            Collaborative Document
+          </span>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={toggleMinimize}
+            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={toggleMaximize}
+            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+          >
+            {state.isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => setState(prev => ({ ...prev, isEditing: false }))}
+            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2">
+        <div className="flex items-center space-x-2 flex-wrap">
+          {/* Document Actions */}
+          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
             <button
               onClick={() => setShowDocumentList(!showDocumentList)}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-              title="Document List"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Documents"
             >
-              <FileText className="w-5 h-5" />
+              <FileText className="w-4 h-4" />
             </button>
-            
             <button
-              onClick={() => setShowPermissions(!showPermissions)}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-              title="Permissions"
+              onClick={() => setShowTemplates(!showTemplates)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Templates"
             >
-              <Shield className="w-5 h-5" />
+              <Type className="w-4 h-4" />
             </button>
-            
             <button
-              onClick={() => setShowChanges(!showChanges)}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 relative"
-              title="Pending Changes"
+              onClick={saveDocument}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Save"
             >
-              <Clock className="w-5 h-5" />
-              {pendingChanges.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  {pendingChanges.length}
-                </span>
-              )}
+              <Save className="w-4 h-4" />
             </button>
+            <button
+              onClick={exportDocument}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Export"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <label className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer">
+              <Upload className="w-4 h-4" />
+              <input
+                type="file"
+                accept=".html"
+                onChange={importDocument}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Text Formatting */}
+          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
+            <select
+              value={fontFamily}
+              onChange={(e) => {
+                setFontFamily(e.target.value)
+                applyFormat('fontName', e.target.value)
+              }}
+              className="px-2 py-1 text-sm border border-gray-300 rounded"
+            >
+              {fonts.map(font => (
+                <option key={font} value={font}>{font}</option>
+              ))}
+            </select>
+            
+            <select
+              value={fontSize}
+              onChange={(e) => {
+                setFontSize(Number(e.target.value))
+                applyFormat('fontSize', e.target.value)
+              }}
+              className="px-2 py-1 text-sm border border-gray-300 rounded w-16"
+            >
+              {[8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72].map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => applyFormat('bold')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Bold"
+            >
+              <Bold className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => applyFormat('italic')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Italic"
+            >
+              <Italic className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => applyFormat('underline')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Underline"
+            >
+              <Underline className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => applyFormat('strikeThrough')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Strikethrough"
+            >
+              <Strikethrough className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Alignment */}
+          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
+            <button
+              onClick={() => applyFormat('justifyLeft')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Align Left"
+            >
+              <AlignLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => applyFormat('justifyCenter')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Align Center"
+            >
+              <AlignCenter className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => applyFormat('justifyRight')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Align Right"
+            >
+              <AlignRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => applyFormat('justifyFull')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Justify"
+            >
+              <AlignJustify className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Lists */}
+          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
+            <button
+              onClick={() => applyFormat('insertUnorderedList')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Bullet List"
+            >
+              <List className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => applyFormat('insertOrderedList')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Numbered List"
+            >
+              <ListOrdered className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Headings */}
+          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
+            <button
+              onClick={() => applyFormat('formatBlock', '<h1>')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Heading 1"
+            >
+              <Heading1 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => applyFormat('formatBlock', '<h2>')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Heading 2"
+            >
+              <Heading2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => applyFormat('formatBlock', '<h3>')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title="Heading 3"
+            >
+              <Heading3 className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Colors */}
+          <div className="flex items-center space-x-1">
+            <input
+              type="color"
+              value={textColor}
+              onChange={(e) => {
+                setTextColor(e.target.value)
+                applyFormat('foreColor', e.target.value)
+              }}
+              className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+              title="Text Color"
+            />
+            <input
+              type="color"
+              value={backgroundColor}
+              onChange={(e) => {
+                setBackgroundColor(e.target.value)
+                applyFormat('hiliteColor', e.target.value)
+              }}
+              className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+              title="Background Color"
+            />
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex">
-        {/* Main Editor */}
-        <div className="flex-1 flex flex-col">
-          {!currentDocument ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  No Document Selected
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  Create a new document or select an existing one to start collaborating
-                </p>
-                <button
-                  onClick={() => setShowDocumentList(true)}
-                  className="btn-primary"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Document
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Editor Toolbar */}
-              <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {isEditing ? (
-                      <>
-                        <button
-                          onClick={handleSaveDocument}
-                          className="btn-primary"
-                        >
-                          <Save className="w-4 h-4 mr-2" />
-                          Save
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsEditing(false)
-                            setLocalContent(currentDocument.content)
-                          }}
-                          className="btn-secondary"
-                        >
-                          <X className="w-4 h-4 mr-2" />
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className={`btn-primary ${!canEdit ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={!canEdit}
-                        title={!canEdit ? 'No edit permission' : 'Edit document'}
+      {/* Content Area */}
+      <div className="flex h-full">
+        {/* Sidebar */}
+        <AnimatePresence>
+          {(showDocumentList || showTemplates) && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 250, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600 overflow-hidden"
+            >
+              {showDocumentList && (
+                <div className="p-4">
+                  <h3 className="font-semibold mb-3">Documents</h3>
+                  <div className="space-y-2">
+                    {state.documents.map(doc => (
+                      <div
+                        key={doc.id}
+                        className="p-2 bg-white dark:bg-gray-800 rounded border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                        onClick={() => loadDocument(doc)}
                       >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit
-                      </button>
-                    )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium truncate">{doc.title}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteDocument(doc.id)
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(doc.updatedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                  
-                  <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                    <User className="w-4 h-4" />
-                    <span>{currentDocument.contributors.length} contributors</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Document Content */}
-              <div className="flex-1 p-4">
-                <textarea
-                  ref={editorRef}
-                  value={localContent}
-                  onChange={(e) => setLocalContent(e.target.value)}
-                  disabled={!isEditing}
-                  className="w-full h-full p-4 border border-gray-200 dark:border-gray-600 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
-                  placeholder="Start typing your document..."
-                />
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Side Panels */}
-        <div className="w-80 border-l border-gray-200 dark:border-gray-700">
-          {/* Document List */}
-          {showDocumentList && (
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                Documents
-              </h3>
-              
-              <div className="space-y-2 mb-4">
-                {documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    onClick={() => setCurrentDocument(doc)}
-                    className={`p-2 rounded-lg cursor-pointer transition-colors ${
-                      currentDocument?.id === doc.id
-                        ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
+                  <button
+                    onClick={() => createNewDocument()}
+                    className="w-full mt-3 p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
-                    <div className="text-sm font-medium">{doc.title}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      v{doc.version} • {new Date(doc.updatedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={newDocumentTitle}
-                  onChange={(e) => setNewDocumentTitle(e.target.value)}
-                  placeholder="Document title"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
-                />
-                <button
-                  onClick={handleCreateDocument}
-                  className="w-full btn-primary"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create New
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Permissions */}
-          {showPermissions && (
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                Permissions
-              </h3>
-              
-              <div className="space-y-2">
-                {documentPermissions.map((permission) => (
-                  <div key={permission.userId} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div>
-                      <div className="text-sm font-medium">{permission.userName}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {permission.permission} permission
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => revokePermission(permission.userId)}
-                      className="p-1 text-red-500 hover:text-red-700"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Pending Changes */}
-          {showChanges && (
-            <div className="p-4">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                Pending Changes
-              </h3>
-              
-              {pendingChanges.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  No pending changes
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {pendingChanges.map((change) => (
-                    <div key={change.id} className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm font-medium">{change.userName}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(change.timestamp).toLocaleTimeString()}
-                        </div>
-                      </div>
-                      
-                      <div className="text-xs text-gray-600 dark:text-gray-300 mb-3">
-                        {change.change.type}: {change.change.text || `${change.change.length} characters`}
-                      </div>
-                      
-                      {canApprove && (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleApproveChange(change.id)}
-                            className="flex-1 px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                          >
-                            <Check className="w-3 h-3 mr-1" />
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleRejectChange(change.id)}
-                            className="flex-1 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                          >
-                            <X className="w-3 h-3 mr-1" />
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    New Document
+                  </button>
                 </div>
               )}
-            </div>
+
+              {showTemplates && (
+                <div className="p-4">
+                  <h3 className="font-semibold mb-3">Templates</h3>
+                  <div className="space-y-2">
+                    {templates.map(template => {
+                      const Icon = template.icon
+                      return (
+                        <button
+                          key={template.id}
+                          onClick={() => {
+                            createNewDocument(template.id)
+                            setShowTemplates(false)
+                          }}
+                          className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded border hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <Icon className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm">{template.name}</span>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </motion.div>
           )}
+        </AnimatePresence>
+
+        {/* Editor */}
+        <div className="flex-1 flex flex-col">
+          <div
+            ref={editorRef}
+            contentEditable={true}
+            onBlur={saveDocument}
+            className="flex-1 p-4 overflow-y-auto focus:outline-none"
+            style={{
+              fontFamily,
+              fontSize: `${fontSize}px`,
+              color: textColor,
+              backgroundColor
+            }}
+            dangerouslySetInnerHTML={{
+              __html: state.currentDocument?.content || '<p>Start typing your document...</p>'
+            }}
+          />
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 

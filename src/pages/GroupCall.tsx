@@ -9,7 +9,7 @@ import TranscriptionPanel from '../components/TranscriptionPanel'
 import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import WaitingRoomChat from '../components/WaitingRoomChat'
-import Whiteboard from '../components/Whiteboard'
+import CollaborativeDocument from '../components/CollaborativeDocument'
 import ControlButton from '../components/ControlButton'
 import CallDashboard from '../components/CallDashboard'
 import { 
@@ -26,7 +26,7 @@ const GroupCall = () => {
   const [showSettings, setShowSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showWaitingRoom, setShowWaitingRoom] = useState(false)
-  const [showWhiteboard, setShowWhiteboard] = useState(false)
+  const [showDocument, setShowDocument] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isHost, setIsHost] = useState(false)
   const [isCallStarted, setIsCallStarted] = useState(false)
@@ -314,9 +314,9 @@ const GroupCall = () => {
             </ControlButton>
             
             <ControlButton
-              onClick={() => setShowWhiteboard(!showWhiteboard)}
-              title="Open Collaborative Whiteboard"
-              variant={showWhiteboard ? 'active' : 'default'}
+              onClick={() => setShowDocument(!showDocument)}
+              title="Open Collaborative Document"
+              variant={showDocument ? 'active' : 'default'}
             >
               <FileText />
             </ControlButton>
@@ -353,13 +353,10 @@ const GroupCall = () => {
         </div>
       </div>
 
-      {/* Collaborative Whiteboard */}
-      <Whiteboard
-        isOpen={showWhiteboard}
-        onClose={() => setShowWhiteboard(false)}
-        currentUser={currentUser}
-        isHost={isHost}
-      />
+      {/* Collaborative Document */}
+      {showDocument && (
+        <CollaborativeDocument />
+      )}
 
       {/* Share Meeting Modal */}
       {showShareModal && (
