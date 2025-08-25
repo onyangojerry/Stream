@@ -24,10 +24,29 @@ export interface AuthState {
 }
 
 // Simulated user database (in a real app, this would be an API)
-const users: { [key: string]: User & { password: string } } = {}
+let users: { [key: string]: User & { password: string } } = {}
+
+// Load users from localStorage on initialization
+try {
+  const savedUsers = localStorage.getItem('striim-users')
+  if (savedUsers) {
+    users = JSON.parse(savedUsers)
+  }
+} catch (error) {
+  console.error('Error loading users:', error)
+  users = {}
+}
 
 const generateUserId = (): string => {
   return `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+const saveUsersToStorage = () => {
+  try {
+    localStorage.setItem('striim-users', JSON.stringify(users))
+  } catch (error) {
+    console.error('Error saving users:', error)
+  }
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -98,6 +117,7 @@ export const useAuthStore = create<AuthState>()(
             ...newUser,
             password: userData.password // In real app, this would be hashed
           }
+          saveUsersToStorage()
 
           set({
             user: newUser,
@@ -157,6 +177,7 @@ export const useAuthStore = create<AuthState>()(
             isOnline: true,
             lastLoginAt: new Date()
           }
+          saveUsersToStorage()
 
           set({
             user: updatedUser,
@@ -179,9 +200,10 @@ export const useAuthStore = create<AuthState>()(
         const { user } = get()
         if (user) {
           // Update user status in "database"
-          if (users[user.id]) {
-            users[user.id].isOnline = false
-          }
+                  if (users[user.id]) {
+          users[user.id].isOnline = false
+          saveUsersToStorage()
+        }
         }
 
         set({
@@ -205,6 +227,7 @@ export const useAuthStore = create<AuthState>()(
           // Update in "database"
           if (users[user.id]) {
             users[user.id] = { ...users[user.id], ...updates }
+            saveUsersToStorage()
           }
         }
       },
