@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Video, Users, Presentation, Calendar, ArrowRight, Share2, Copy, Check } from 'lucide-react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '../store/useAuthStore'
 import MeetingConfirmationModal from '../components/MeetingConfirmationModal'
 import RealMeetings from '../components/RealMeetings'
 
@@ -59,10 +60,83 @@ const Home = () => {
       toast.error('Please enter a meeting ID')
       return
     }
+    // Check if user is authenticated
+    const { isAuthenticated, createDemoUser } = useAuthStore.getState()
+    if (!isAuthenticated) {
+      // Offer demo mode or login
+      toast(
+        (t) => (
+          <div>
+            <p className="text-sm mb-2">You need to log in to join a meeting</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id)
+                  navigate('/login')
+                }}
+                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+              >
+                Log In
+              </button>
+              <button
+                onClick={async () => {
+                  toast.dismiss(t.id)
+                  // Create demo user and continue
+                  await createDemoUser()
+                  navigate(`/call/${roomId}`)
+                }}
+                className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+              >
+                Demo Mode
+              </button>
+            </div>
+          </div>
+        ),
+        { duration: 6000 }
+      )
+      return
+    }
     navigate(`/call/${roomId}`)
   }
 
   const handleStartMeeting = (type: 'video' | 'group' | 'webinar') => {
+    // Check if user is authenticated
+    const { isAuthenticated, createDemoUser } = useAuthStore.getState()
+    if (!isAuthenticated) {
+      // Offer demo mode or login
+      toast(
+        (t) => (
+          <div>
+            <p className="text-sm mb-2">You need to log in to start a meeting</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id)
+                  navigate('/login')
+                }}
+                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+              >
+                Log In
+              </button>
+              <button
+                onClick={async () => {
+                  toast.dismiss(t.id)
+                  // Create demo user and continue
+                  await createDemoUser()
+                  setSelectedMeetingType(type)
+                  setShowConfirmationModal(true)
+                }}
+                className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+              >
+                Demo Mode
+              </button>
+            </div>
+          </div>
+        ),
+        { duration: 6000 }
+      )
+      return
+    }
     setSelectedMeetingType(type)
     setShowConfirmationModal(true)
   }

@@ -3,52 +3,34 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    @apply border-gray-200;
-  }
   body {
     @apply bg-white text-gray-900;
     font-feature-settings: "rlig" 1, "calt" 1;
-    /* Optimize for performance */
-    text-rendering: optimizeSpeed;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  
-  /* Optimize animations */
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
   }
   
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
-  }
-  
-  .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
   }
   
   .video-container {
-    @apply relative bg-gray-900 dark:bg-gray-800 rounded-lg overflow-hidden;
+    @apply relative bg-gray-900 rounded-lg overflow-hidden;
   }
   
   .control-button {
-    @apply p-3 rounded-full bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white transition-all duration-200 hover:scale-105;
+    @apply p-3 rounded-full bg-gray-800 hover:bg-gray-700 text-white transition-all duration-200;
   }
   
   .control-button.active {
-    @apply bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600;
+    @apply bg-red-600 hover:bg-red-700;
   }
   
   .control-button.muted {
-    @apply bg-gray-600 hover:bg-gray-500 dark:bg-gray-500 dark:hover:bg-gray-400;
+    @apply bg-gray-600 hover:bg-gray-500;
   }
 }

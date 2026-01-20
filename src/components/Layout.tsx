@@ -12,7 +12,7 @@ interface LayoutProps {
 const Layout = memo(({ children }: LayoutProps) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
+  const { user, logout, isAuthenticated } = useAuthStore()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
@@ -61,7 +61,9 @@ const Layout = memo(({ children }: LayoutProps) => {
             
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex space-x-8">
-              {navigation.map((item) => {
+              {navigation
+                .filter(item => isAuthenticated || item.href === '/')
+                .map((item) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.href
                 return (
@@ -85,7 +87,7 @@ const Layout = memo(({ children }: LayoutProps) => {
             <div className="flex items-center space-x-2 sm:space-x-4">
               <ThemeToggle />
               
-              {user ? (
+              {isAuthenticated && user ? (
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
@@ -121,20 +123,19 @@ const Layout = memo(({ children }: LayoutProps) => {
                   )}
                 </div>
               ) : (
+                /* Login/Signup buttons for unauthenticated users */
                 <div className="flex items-center space-x-2">
                   <Link
                     to="/login"
-                    className="btn-secondary text-xs sm:text-sm px-2 sm:px-4 py-2"
+                    className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                   >
-                    <span className="hidden sm:inline">Sign in</span>
-                    <span className="sm:hidden">Login</span>
+                    Log In
                   </Link>
                   <Link
                     to="/signup"
-                    className="btn-primary text-xs sm:text-sm px-2 sm:px-4 py-2"
+                    className="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    <span className="hidden sm:inline">Sign up</span>
-                    <span className="sm:hidden">Join</span>
+                    Sign Up
                   </Link>
                 </div>
               )}

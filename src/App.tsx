@@ -5,7 +5,7 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 
 // Lazy load all pages for faster initial load
-const Home = lazy(() => import('./pages/Home'))
+const Home = lazy(() => import('./pages/Home-improved'))
 const VideoCall = lazy(() => import('./pages/VideoCall'))
 const Webinar = lazy(() => import('./pages/Webinar'))
 const GroupCall = lazy(() => import('./pages/GroupCall'))
@@ -41,14 +41,14 @@ function App() {
             </ProtectedRoute>
           } />
           
-          {/* Protected Routes */}
+          {/* Public Home Route - accessible to everyone */}
           <Route path="/" element={
-            <ProtectedRoute>
-              <Layout>
-                <Home />
-              </Layout>
-            </ProtectedRoute>
+            <Layout>
+              <Home />
+            </Layout>
           } />
+          
+          {/* Protected Routes */}
           <Route path="/call/:roomId" element={
             <ProtectedRoute>
               <Layout>

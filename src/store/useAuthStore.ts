@@ -21,6 +21,8 @@ export interface AuthState {
   logout: () => void
   clearError: () => void
   updateProfile: (updates: Partial<User>) => void
+  createDemoUser: () => Promise<void>
+  createDemoUser: () => Promise<void>
 }
 
 // Simulated user database (in a real app, this would be an API)
@@ -229,6 +231,33 @@ export const useAuthStore = create<AuthState>()(
             users[user.id] = { ...users[user.id], ...updates }
             saveUsersToStorage()
           }
+        }
+      },
+
+      createDemoUser: async () => {
+        set({ isLoading: true })
+        
+        try {
+          // Create a demo user
+          const userId = generateUserId()
+          const demoUser: User = {
+            id: userId,
+            name: `Demo User ${Math.floor(Math.random() * 1000)}`,
+            email: `demo${Math.floor(Math.random() * 10000)}@demo.com`,
+            isOnline: true,
+            createdAt: new Date(),
+            lastLoginAt: new Date()
+          }
+          
+          // Store demo user temporarily (don't save to localStorage for persistence)
+          set({ 
+            user: demoUser, 
+            isAuthenticated: true, 
+            isLoading: false,
+            error: null 
+          })
+        } catch (error) {
+          set({ isLoading: false, error: 'Failed to create demo user' })
         }
       },
     }),
