@@ -40,8 +40,17 @@ const Login = () => {
     const success = await login(formData)
     if (success) {
       toast.success('Welcome back!')
-      const from = location.state?.from?.pathname || '/'
-      navigate(from, { replace: true })
+      
+      // Check for pending join data
+      const pendingJoin = sessionStorage.getItem('pendingJoin')
+      if (pendingJoin) {
+        sessionStorage.removeItem('pendingJoin')
+        const joinConfig = JSON.parse(pendingJoin)
+        navigate(`/call/${joinConfig.meetingId}`, { replace: true })
+      } else {
+        const from = location.state?.from?.pathname || '/'
+        navigate(from, { replace: true })
+      }
     }
   }
 

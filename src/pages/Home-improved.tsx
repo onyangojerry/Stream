@@ -1,5 +1,5 @@
 import React from "react";
-import { Video, Users, Calendar, Play, Sparkles, Zap, Globe, Shield } from "lucide-react";
+import { Video, Users, Calendar, Play, Sparkles, Zap, Globe, Shield, Mic } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -40,6 +40,15 @@ const meetingTypes = [
     shadowColor: "shadow-indigo-500/25",
     features: ["HD Recording", "Transcripts", "Analytics"]
   },
+  {
+    id: "test-transcription",
+    icon: Mic,
+    title: "Test Transcription",
+    description: "Try real-time speech-to-text", 
+    gradient: "from-teal-500 via-blue-500 to-indigo-500",
+    shadowColor: "shadow-teal-500/25",
+    features: ["Live Speech-to-Text", "Web Speech API", "Confidence Scoring"]
+  },
 ];
 
 const features = [
@@ -74,18 +83,22 @@ export default function Home() {
 
   const handleMeetingAction = (type: string) => {
     switch (type) {
-      case "instant":
+      case "instant": {
         const meetingId = Math.random().toString(36).substring(2, 15);
         navigate(`/call/${meetingId}`);
         break;
+      }
       case "join":
-        navigate("/call");
+        navigate("/join");
         break; 
       case "schedule":
         navigate("/scheduler");
         break;
       case "recordings":
         navigate("/recordings");
+        break;
+      case "test-transcription":
+        navigate("/test-transcription");
         break;
       default:
         break;

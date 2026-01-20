@@ -93,9 +93,34 @@ const VideoCall = () => {
   const initializeCall = async () => {
     try {
       if (!currentUser) {
-        toast.error('Please log in to join a call')
-        navigate('/login')
-        return
+        // Prompt user to login or continue as guest
+        const shouldLogin = window.confirm(
+          'To access all features, please log in. Click OK to go to login page, or Cancel to continue as guest.'
+        );
+        
+        if (shouldLogin) {
+          // Save the room ID for after login
+          sessionStorage.setItem('pendingJoin', JSON.stringify({
+            meetingId: roomId,
+            displayName: 'Guest User',
+            isVideoEnabled: true,
+            isAudioEnabled: true
+          }));
+          navigate('/login');
+          return;
+        } else {
+          // Continue as guest - create a temporary user
+          const guestUser = {
+            id: `guest-${Date.now()}`,
+            name: 'Guest User',
+            email: '',
+            isOnline: true,
+            createdAt: new Date(),
+            lastLoginAt: new Date()
+          };
+          // Set the guest user temporarily (you might want to update the auth store to handle this)
+          console.log('Continuing as guest:', guestUser);
+        }
       }
 
       // Check if user is joining via link (not the host)

@@ -1,1 +1,460 @@
-import React, { useState, useRef, useEffect } from 'react';\nimport { motion, AnimatePresence } from 'framer-motion';\nimport {\n  Mic,\n  MicOff,\n  Video,\n  VideoOff,\n  Pin,\n  PinOff,\n  MoreVertical,\n  User,\n  VolumeX,\n  Volume2,\n  Maximize,\n  Share,\n  UserPlus,\n  Wifi,\n  WifiOff,\n  Signal,\n  Crown,\n  Hand,\n  MessageCircle\n} from 'lucide-react';\n\ninterface Participant {\n  id: string;\n  name: string;\n  isVideoEnabled: boolean;\n  isAudioEnabled: boolean;\n  isPinned: boolean;\n  isHost: boolean;\n  isLocalUser: boolean;\n  connectionQuality: 'excellent' | 'good' | 'poor' | 'disconnected';\n  hasRaisedHand: boolean;\n  isSpeaking: boolean;\n  videoStream?: MediaStream;\n}\n\ninterface VideoGridProps {\n  participants: Participant[];\n  onPinParticipant: (participantId: string) => void;\n  onRemoveParticipant?: (participantId: string) => void;\n  onVolumeChange?: (participantId: string, volume: number) => void;\n  layout: 'grid' | 'speaker' | 'gallery' | 'sidebar';\n  maxParticipantsVisible: number;\n}\n\nconst VideoGrid: React.FC<VideoGridProps> = ({\n  participants,\n  onPinParticipant,\n  onRemoveParticipant,\n  onVolumeChange,\n  layout = 'grid',\n  maxParticipantsVisible = 9,\n}) => {\n  const [hoveredParticipant, setHoveredParticipant] = useState<string | null>(null);\n  const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null);\n  const [showParticipantMenu, setShowParticipantMenu] = useState<string | null>(null);\n  const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});\n\n  // Auto-assign video streams to video elements\n  useEffect(() => {\n    participants.forEach((participant) => {\n      const videoElement = videoRefs.current[participant.id];\n      if (videoElement && participant.videoStream) {\n        videoElement.srcObject = participant.videoStream;\n      }\n    });\n  }, [participants]);\n\n  const getGridLayout = () => {\n    const count = Math.min(participants.length, maxParticipantsVisible);\n    if (count <= 1) return 'grid-cols-1';\n    if (count <= 4) return 'grid-cols-2';\n    if (count <= 6) return 'grid-cols-3';\n    if (count <= 9) return 'grid-cols-3';\n    return 'grid-cols-4';\n  };\n\n  const getConnectionIcon = (quality: string) => {\n    switch (quality) {\n      case 'excellent':\n        return <Wifi className=\"text-green-400\" size={12} />;\n      case 'good':\n        return <Signal className=\"text-yellow-400\" size={12} />;\n      case 'poor':\n        return <WifiOff className=\"text-red-400\" size={12} />;\n      case 'disconnected':\n        return <WifiOff className=\"text-gray-400\" size={12} />;\n      default:\n        return <Wifi className=\"text-green-400\" size={12} />;\n    }\n  };\n\n  const getConnectionColor = (quality: string) => {\n    switch (quality) {\n      case 'excellent':\n        return 'border-green-500/50 shadow-glow-green';\n      case 'good':\n        return 'border-yellow-500/50 shadow-glow-yellow';\n      case 'poor':\n        return 'border-red-500/50 shadow-glow-red';\n      case 'disconnected':\n        return 'border-gray-500/50';\n      default:\n        return 'border-green-500/50 shadow-glow-green';\n    }\n  };\n\n  const handleParticipantClick = (participantId: string) => {\n    if (selectedParticipant === participantId) {\n      setSelectedParticipant(null);\n    } else {\n      setSelectedParticipant(participantId);\n    }\n  };\n\n  const ParticipantCard: React.FC<{ participant: Participant; index: number }> = ({ participant, index }) => {\n    const isHovered = hoveredParticipant === participant.id;\n    const isSelected = selectedParticipant === participant.id;\n    const isPinned = participant.isPinned;\n\n    return (\n      <motion.div\n        layout\n        initial={{ opacity: 0, scale: 0.8, rotateY: -15 }}\n        animate={{ \n          opacity: 1, \n          scale: 1, \n          rotateY: 0,\n          zIndex: isSelected ? 10 : isPinned ? 5 : 1\n        }}\n        exit={{ opacity: 0, scale: 0.8, rotateY: 15 }}\n        transition={{ \n          duration: 0.5, \n          delay: index * 0.1,\n          type: 'spring',\n          stiffness: 300\n        }}\n        whileHover={{ \n          scale: 1.02, \n          y: -4,\n          rotateX: 2,\n          transition: { duration: 0.2 }\n        }}\n        className={`\n          relative group cursor-pointer card-3d\n          ${\n            isPinned\n              ? 'col-span-2 row-span-2'\n              : isSelected\n              ? 'col-span-2'\n              : ''\n          }\n        `}\n        onMouseEnter={() => setHoveredParticipant(participant.id)}\n        onMouseLeave={() => setHoveredParticipant(null)}\n        onClick={() => handleParticipantClick(participant.id)}\n      >\n        {/* Video Container */}\n        <div className={`\n          video-container aspect-video relative overflow-hidden border-2 transition-all duration-300\n          ${\n            participant.isSpeaking\n              ? 'border-purple-500/70 shadow-glow-purple'\n              : getConnectionColor(participant.connectionQuality)\n          }\n        `}>\n          {/* Video Element */}\n          {participant.isVideoEnabled ? (\n            <video\n              ref={(el) => (videoRefs.current[participant.id] = el)}\n              autoPlay\n              playsInline\n              muted={participant.isLocalUser}\n              className=\"w-full h-full object-cover\"\n            />\n          ) : (\n            <div className=\"w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center\">\n              <div className={`\n                w-16 h-16 rounded-full bg-gradient-to-r flex items-center justify-center text-white text-xl font-bold shadow-2xl\n                ${\n                  participant.isHost\n                    ? 'from-yellow-500 to-orange-500'\n                    : 'from-purple-500 to-pink-500'\n                }\n              `}>\n                {participant.name.charAt(0).toUpperCase()}\n              </div>\n            </div>\n          )}\n\n          {/* Overlay Controls */}\n          <AnimatePresence>\n            {(isHovered || isSelected) && (\n              <motion.div\n                initial={{ opacity: 0 }}\n                animate={{ opacity: 1 }}\n                exit={{ opacity: 0 }}\n                className=\"absolute inset-0 bg-black/20 backdrop-blur-[1px]\"\n              >\n                {/* Top Controls */}\n                <div className=\"absolute top-3 left-3 right-3 flex items-center justify-between\">\n                  <div className=\"flex items-center gap-2\">\n                    {/* Host Badge */}\n                    {participant.isHost && (\n                      <motion.div\n                        initial={{ scale: 0 }}\n                        animate={{ scale: 1 }}\n                        className=\"flex items-center gap-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-2 py-1 rounded-full font-medium\"\n                      >\n                        <Crown size={10} />\n                        Host\n                      </motion.div>\n                    )}\n                    \n                    {/* Pin Badge */}\n                    {isPinned && (\n                      <motion.div\n                        initial={{ scale: 0 }}\n                        animate={{ scale: 1 }}\n                        className=\"bg-purple-500/80 text-white p-1 rounded-full\"\n                      >\n                        <Pin size={10} />\n                      </motion.div>\n                    )}\n\n                    {/* Raised Hand */}\n                    {participant.hasRaisedHand && (\n                      <motion.div\n                        animate={{ rotate: [0, 10, -10, 0] }}\n                        transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}\n                        className=\"bg-yellow-500/80 text-white p-1 rounded-full\"\n                      >\n                        <Hand size={10} />\n                      </motion.div>\n                    )}\n                  </div>\n\n                  <div className=\"flex items-center gap-1\">\n                    {/* Connection Quality */}\n                    <div className=\"bg-black/50 p-1 rounded-full\">\n                      {getConnectionIcon(participant.connectionQuality)}\n                    </div>\n\n                    {/* More Options */}\n                    <motion.button\n                      whileHover={{ scale: 1.1 }}\n                      whileTap={{ scale: 0.9 }}\n                      onClick={(e) => {\n                        e.stopPropagation();\n                        setShowParticipantMenu(\n                          showParticipantMenu === participant.id ? null : participant.id\n                        );\n                      }}\n                      className=\"bg-black/50 text-white p-1 rounded-full hover:bg-black/70 transition-colors\"\n                    >\n                      <MoreVertical size={12} />\n                    </motion.button>\n                  </div>\n                </div>\n\n                {/* Center Controls */}\n                <div className=\"absolute inset-0 flex items-center justify-center gap-3\">\n                  <motion.button\n                    whileHover={{ scale: 1.1 }}\n                    whileTap={{ scale: 0.9 }}\n                    onClick={(e) => {\n                      e.stopPropagation();\n                      onPinParticipant(participant.id);\n                    }}\n                    className=\"control-button p-3\"\n                  >\n                    {isPinned ? <PinOff size={16} /> : <Pin size={16} />}\n                  </motion.button>\n\n                  {!participant.isLocalUser && (\n                    <motion.button\n                      whileHover={{ scale: 1.1 }}\n                      whileTap={{ scale: 0.9 }}\n                      className=\"control-button p-3\"\n                    >\n                      <MessageCircle size={16} />\n                    </motion.button>\n                  )}\n\n                  <motion.button\n                    whileHover={{ scale: 1.1 }}\n                    whileTap={{ scale: 0.9 }}\n                    className=\"control-button p-3\"\n                  >\n                    <Maximize size={16} />\n                  </motion.button>\n                </div>\n              </motion.div>\n            )}\n          </AnimatePresence>\n\n          {/* Participant Menu */}\n          <AnimatePresence>\n            {showParticipantMenu === participant.id && (\n              <motion.div\n                initial={{ opacity: 0, scale: 0.9, y: -10 }}\n                animate={{ opacity: 1, scale: 1, y: 0 }}\n                exit={{ opacity: 0, scale: 0.9, y: -10 }}\n                className=\"absolute top-12 right-3 glass-card p-2 min-w-[150px] z-20\"\n                onClick={(e) => e.stopPropagation()}\n              >\n                <div className=\"space-y-1\">\n                  <button className=\"w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg transition-colors\">\n                    View Profile\n                  </button>\n                  <button className=\"w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg transition-colors\">\n                    Send Message\n                  </button>\n                  {!participant.isLocalUser && (\n                    <>\n                      <button className=\"w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg transition-colors\">\n                        Mute Audio\n                      </button>\n                      {participant.isHost && (\n                        <button className=\"w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors\">\n                          Remove Participant\n                        </button>\n                      )}\n                    </>\n                  )}\n                </div>\n              </motion.div>\n            )}\n          </AnimatePresence>\n\n          {/* Bottom Info Bar */}\n          <div className=\"absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3\">\n            <div className=\"flex items-center justify-between\">\n              <div className=\"flex items-center gap-2\">\n                <span className=\"text-white font-medium text-sm truncate max-w-[120px]\">\n                  {participant.name}\n                </span>\n                {participant.isLocalUser && (\n                  <span className=\"text-xs text-green-400 font-medium\">(You)</span>\n                )}\n              </div>\n\n              <div className=\"flex items-center gap-1\">\n                {/* Audio Indicator */}\n                <div className={`\n                  p-1 rounded-full transition-all duration-200\n                  ${\n                    participant.isAudioEnabled\n                      ? participant.isSpeaking\n                        ? 'bg-green-500 animate-pulse'\n                        : 'bg-green-500/50'\n                      : 'bg-red-500/50'\n                  }\n                `}>\n                  {participant.isAudioEnabled ? (\n                    <Mic size={10} className=\"text-white\" />\n                  ) : (\n                    <MicOff size={10} className=\"text-white\" />\n                  )}\n                </div>\n\n                {/* Video Indicator */}\n                <div className={`\n                  p-1 rounded-full transition-all duration-200\n                  ${\n                    participant.isVideoEnabled\n                      ? 'bg-blue-500/50'\n                      : 'bg-red-500/50'\n                  }\n                `}>\n                  {participant.isVideoEnabled ? (\n                    <Video size={10} className=\"text-white\" />\n                  ) : (\n                    <VideoOff size={10} className=\"text-white\" />\n                  )}\n                </div>\n              </div>\n            </div>\n          </div>\n\n          {/* Speaking Indicator */}\n          {participant.isSpeaking && (\n            <motion.div\n              animate={{\n                scale: [1, 1.05, 1],\n                opacity: [0.5, 1, 0.5],\n              }}\n              transition={{\n                duration: 1,\n                repeat: Infinity,\n                ease: 'easeInOut',\n              }}\n              className=\"absolute inset-0 border-4 border-purple-500 rounded-2xl pointer-events-none\"\n            />\n          )}\n        </div>\n      </motion.div>\n    );\n  };\n\n  const visibleParticipants = participants.slice(0, maxParticipantsVisible);\n  const hiddenParticipants = participants.slice(maxParticipantsVisible);\n\n  return (\n    <div className=\"w-full h-full p-4\">\n      {/* Main Grid */}\n      <motion.div\n        layout\n        className={`\n          grid gap-4 h-full\n          ${\n            layout === 'grid'\n              ? `${getGridLayout()} auto-rows-fr`\n              : layout === 'speaker'\n              ? 'grid-cols-4 grid-rows-3'\n              : layout === 'gallery'\n              ? 'grid-cols-6 grid-rows-4'\n              : 'grid-cols-3 grid-rows-3'\n          }\n        `}\n      >\n        <AnimatePresence mode=\"popLayout\">\n          {visibleParticipants.map((participant, index) => (\n            <ParticipantCard\n              key={participant.id}\n              participant={participant}\n              index={index}\n            />\n          ))}\n        </AnimatePresence>\n      </motion.div>\n\n      {/* Hidden Participants Indicator */}\n      {hiddenParticipants.length > 0 && (\n        <motion.div\n          initial={{ opacity: 0, y: 20 }}\n          animate={{ opacity: 1, y: 0 }}\n          className=\"fixed bottom-32 left-6 glass-card rounded-xl p-3 border border-white/20\"\n        >\n          <div className=\"flex items-center gap-2 text-white text-sm\">\n            <UserPlus size={16} />\n            <span>+{hiddenParticipants.length} more participants</span>\n          </div>\n        </motion.div>\n      )}\n\n      {/* Click outside to close menus */}\n      {showParticipantMenu && (\n        <div\n          className=\"fixed inset-0 z-10\"\n          onClick={() => setShowParticipantMenu(null)}\n        />\n      )}\n    </div>\n  );\n};\n\nexport default VideoGrid;
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  Pin,
+  PinOff,
+  MoreVertical,
+  User,
+  VolumeX,
+  Volume2,
+  Maximize,
+  Share,
+  UserPlus,
+  Wifi,
+  WifiOff,
+  Signal,
+  Crown,
+  Hand,
+  MessageCircle
+} from 'lucide-react';
+
+interface Participant {
+  id: string;
+  name: string;
+  isVideoEnabled: boolean;
+  isAudioEnabled: boolean;
+  isPinned: boolean;
+  isHost: boolean;
+  isLocalUser: boolean;
+  connectionQuality: 'excellent' | 'good' | 'poor' | 'disconnected';
+  hasRaisedHand: boolean;
+  isSpeaking: boolean;
+  videoStream?: MediaStream;
+}
+
+interface VideoGridProps {
+  participants: Participant[];
+  onPinParticipant: (participantId: string) => void;
+  onRemoveParticipant?: (participantId: string) => void;
+  onVolumeChange?: (participantId: string, volume: number) => void;
+  layout: 'grid' | 'speaker' | 'gallery' | 'sidebar';
+  maxParticipantsVisible: number;
+}
+
+const VideoGrid: React.FC<VideoGridProps> = ({
+  participants,
+  onPinParticipant,
+  onRemoveParticipant,
+  onVolumeChange,
+  layout = 'grid',
+  maxParticipantsVisible = 9,
+}) => {
+  const [hoveredParticipant, setHoveredParticipant] = useState<string | null>(null);
+  const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null);
+  const [showParticipantMenu, setShowParticipantMenu] = useState<string | null>(null);
+  const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
+
+  // Auto-assign video streams to video elements
+  useEffect(() => {
+    participants.forEach((participant) => {
+      const videoElement = videoRefs.current[participant.id];
+      if (videoElement && participant.videoStream) {
+        videoElement.srcObject = participant.videoStream;
+      }
+    });
+  }, [participants]);
+
+  const getGridLayout = () => {
+    const count = Math.min(participants.length, maxParticipantsVisible);
+    if (count <= 1) return 'grid-cols-1';
+    if (count <= 4) return 'grid-cols-2';
+    if (count <= 6) return 'grid-cols-3';
+    if (count <= 9) return 'grid-cols-3';
+    return 'grid-cols-4';
+  };
+
+  const getConnectionIcon = (quality: string) => {
+    switch (quality) {
+      case 'excellent':
+        return <Wifi className="text-green-400" size={12} />;
+      case 'good':
+        return <Signal className="text-yellow-400" size={12} />;
+      case 'poor':
+        return <WifiOff className="text-red-400" size={12} />;
+      case 'disconnected':
+        return <WifiOff className="text-gray-400" size={12} />;
+      default:
+        return <Wifi className="text-green-400" size={12} />;
+    }
+  };
+
+  const getConnectionColor = (quality: string) => {
+    switch (quality) {
+      case 'excellent':
+        return 'border-green-500/50 shadow-glow-green';
+      case 'good':
+        return 'border-yellow-500/50 shadow-glow-yellow';
+      case 'poor':
+        return 'border-red-500/50 shadow-glow-red';
+      case 'disconnected':
+        return 'border-gray-500/50';
+      default:
+        return 'border-green-500/50 shadow-glow-green';
+    }
+  };
+
+  const handleParticipantClick = (participantId: string) => {
+    if (selectedParticipant === participantId) {
+      setSelectedParticipant(null);
+    } else {
+      setSelectedParticipant(participantId);
+    }
+  };
+
+  const ParticipantCard: React.FC<{ participant: Participant; index: number }> = ({ participant, index }) => {
+    const isHovered = hoveredParticipant === participant.id;
+    const isSelected = selectedParticipant === participant.id;
+    const isPinned = participant.isPinned;
+
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, scale: 0.8, rotateY: -15 }}
+        animate={{ 
+          opacity: 1, 
+          scale: 1, 
+          rotateY: 0,
+          zIndex: isSelected ? 10 : isPinned ? 5 : 1
+        }}
+        exit={{ opacity: 0, scale: 0.8, rotateY: 15 }}
+        transition={{ 
+          duration: 0.5, 
+          delay: index * 0.1,
+          type: 'spring',
+          stiffness: 300
+        }}
+        whileHover={{ 
+          scale: 1.02, 
+          y: -4,
+          rotateX: 2,
+          transition: { duration: 0.2 }
+        }}
+        className={`
+          relative group cursor-pointer card-3d
+          ${
+            isPinned
+              ? 'col-span-2 row-span-2'
+              : isSelected
+              ? 'col-span-2'
+              : ''
+          }
+        `}
+        onMouseEnter={() => setHoveredParticipant(participant.id)}
+        onMouseLeave={() => setHoveredParticipant(null)}
+        onClick={() => handleParticipantClick(participant.id)}
+      >
+        {/* Video Container */}
+        <div className={`
+          video-container aspect-video relative overflow-hidden border-2 transition-all duration-300
+          ${
+            participant.isSpeaking
+              ? 'border-purple-500/70 shadow-glow-purple'
+              : getConnectionColor(participant.connectionQuality)
+          }
+        `}>
+          {/* Video Element */}
+          {participant.isVideoEnabled ? (
+            <video
+              ref={(el) => (videoRefs.current[participant.id] = el)}
+              autoPlay
+              playsInline
+              muted={participant.isLocalUser}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+              <div className={`
+                w-16 h-16 rounded-full bg-gradient-to-r flex items-center justify-center text-white text-xl font-bold shadow-2xl
+                ${
+                  participant.isHost
+                    ? 'from-yellow-500 to-orange-500'
+                    : 'from-purple-500 to-pink-500'
+                }
+              `}>
+                {participant.name.charAt(0).toUpperCase()}
+              </div>
+            </div>
+          )}
+
+          {/* Overlay Controls */}
+          <AnimatePresence>
+            {(isHovered || isSelected) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/20 backdrop-blur-[1px]"
+              >
+                {/* Top Controls */}
+                <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {/* Host Badge */}
+                    {participant.isHost && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="flex items-center gap-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-2 py-1 rounded-full font-medium"
+                      >
+                        <Crown size={10} />
+                        Host
+                      </motion.div>
+                    )}
+                    
+                    {/* Pin Badge */}
+                    {isPinned && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="bg-purple-500/80 text-white p-1 rounded-full"
+                      >
+                        <Pin size={10} />
+                      </motion.div>
+                    )}
+
+                    {/* Raised Hand */}
+                    {participant.hasRaisedHand && (
+                      <motion.div
+                        animate={{ rotate: [0, 10, -10, 0] }}
+                        transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+                        className="bg-yellow-500/80 text-white p-1 rounded-full"
+                      >
+                        <Hand size={10} />
+                      </motion.div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {/* Connection Quality */}
+                    <div className="bg-black/50 p-1 rounded-full">
+                      {getConnectionIcon(participant.connectionQuality)}
+                    </div>
+
+                    {/* More Options */}
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowParticipantMenu(
+                          showParticipantMenu === participant.id ? null : participant.id
+                        );
+                      }}
+                      className="bg-black/50 text-white p-1 rounded-full hover:bg-black/70 transition-colors"
+                    >
+                      <MoreVertical size={12} />
+                    </motion.button>
+                  </div>
+                </div>
+
+                {/* Center Controls */}
+                <div className="absolute inset-0 flex items-center justify-center gap-3">
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPinParticipant(participant.id);
+                    }}
+                    className="control-button p-3"
+                  >
+                    {isPinned ? <PinOff size={16} /> : <Pin size={16} />}
+                  </motion.button>
+
+                  {!participant.isLocalUser && (
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="control-button p-3"
+                    >
+                      <MessageCircle size={16} />
+                    </motion.button>
+                  )}
+
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="control-button p-3"
+                  >
+                    <Maximize size={16} />
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Participant Menu */}
+          <AnimatePresence>
+            {showParticipantMenu === participant.id && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                className="absolute top-12 right-3 glass-card p-2 min-w-[150px] z-20"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="space-y-1">
+                  <button className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg transition-colors">
+                    View Profile
+                  </button>
+                  <button className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg transition-colors">
+                    Send Message
+                  </button>
+                  {!participant.isLocalUser && (
+                    <>
+                      <button className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg transition-colors">
+                        Mute Audio
+                      </button>
+                      {participant.isHost && (
+                        <button className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                          Remove Participant
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Bottom Info Bar */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-white font-medium text-sm truncate max-w-[120px]">
+                  {participant.name}
+                </span>
+                {participant.isLocalUser && (
+                  <span className="text-xs text-green-400 font-medium">(You)</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1">
+                {/* Audio Indicator */}
+                <div className={`
+                  p-1 rounded-full transition-all duration-200
+                  ${
+                    participant.isAudioEnabled
+                      ? participant.isSpeaking
+                        ? 'bg-green-500 animate-pulse'
+                        : 'bg-green-500/50'
+                      : 'bg-red-500/50'
+                  }
+                `}>
+                  {participant.isAudioEnabled ? (
+                    <Mic size={10} className="text-white" />
+                  ) : (
+                    <MicOff size={10} className="text-white" />
+                  )}
+                </div>
+
+                {/* Video Indicator */}
+                <div className={`
+                  p-1 rounded-full transition-all duration-200
+                  ${
+                    participant.isVideoEnabled
+                      ? 'bg-blue-500/50'
+                      : 'bg-red-500/50'
+                  }
+                `}>
+                  {participant.isVideoEnabled ? (
+                    <Video size={10} className="text-white" />
+                  ) : (
+                    <VideoOff size={10} className="text-white" />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Speaking Indicator */}
+          {participant.isSpeaking && (
+            <motion.div
+              animate={{
+                scale: [1, 1.05, 1],
+                opacity: [0.5, 1, 0.5],
+              }}
+              transition={{
+                duration: 1,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+              className="absolute inset-0 border-4 border-purple-500 rounded-2xl pointer-events-none"
+            />
+          )}
+        </div>
+      </motion.div>
+    );
+  };
+
+  const visibleParticipants = participants.slice(0, maxParticipantsVisible);
+  const hiddenParticipants = participants.slice(maxParticipantsVisible);
+
+  return (
+    <div className="w-full h-full p-4">
+      {/* Main Grid */}
+      <motion.div
+        layout
+        className={`
+          grid gap-4 h-full
+          ${
+            layout === 'grid'
+              ? `${getGridLayout()} auto-rows-fr`
+              : layout === 'speaker'
+              ? 'grid-cols-4 grid-rows-3'
+              : layout === 'gallery'
+              ? 'grid-cols-6 grid-rows-4'
+              : 'grid-cols-3 grid-rows-3'
+          }
+        `}
+      >
+        <AnimatePresence mode="popLayout">
+          {visibleParticipants.map((participant, index) => (
+            <ParticipantCard
+              key={participant.id}
+              participant={participant}
+              index={index}
+            />
+          ))}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Hidden Participants Indicator */}
+      {hiddenParticipants.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-32 left-6 glass-card rounded-xl p-3 border border-white/20"
+        >
+          <div className="flex items-center gap-2 text-white text-sm">
+            <UserPlus size={16} />
+            <span>+{hiddenParticipants.length} more participants</span>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Click outside to close menus */}
+      {showParticipantMenu && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={() => setShowParticipantMenu(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default VideoGrid;

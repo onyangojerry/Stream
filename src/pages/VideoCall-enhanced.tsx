@@ -1,1 +1,469 @@
-import React, { useState, useEffect, useRef } from 'react';\nimport { motion, AnimatePresence } from 'framer-motion';\nimport { useVideoStore } from '../store/videoStore';\nimport VideoGrid from '../components/VideoGrid-enhanced';\nimport ControlPanel from '../components/ControlPanel-enhanced';\nimport Layout from '../components/Layout-enhanced';\nimport {\n  MessageSquare,\n  X,\n  Send,\n  Smile,\n  Paperclip,\n  Users,\n  Settings,\n  Monitor,\n  Mic,\n  Video,\n  Phone,\n  Copy,\n  Share,\n  Calendar,\n  Clock,\n  Globe,\n  ChevronDown,\n  ChevronUp,\n  Maximize,\n  Minimize\n} from 'lucide-react';\n\ninterface ChatMessage {\n  id: string;\n  sender: string;\n  message: string;\n  timestamp: Date;\n  type: 'message' | 'system' | 'reaction';\n}\n\nconst VideoCall: React.FC = () => {\n  const {\n    participants,\n    isVideoEnabled,\n    isAudioEnabled,\n    isScreenSharing,\n    toggleVideo,\n    toggleAudio,\n    toggleScreenShare,\n    addParticipant,\n    removeParticipant,\n    pinParticipant,\n  } = useVideoStore();\n\n  const [isChatOpen, setIsChatOpen] = useState(false);\n  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([\n    {\n      id: '1',\n      sender: 'System',\n      message: 'Welcome to the video call! 🎉',\n      timestamp: new Date(),\n      type: 'system',\n    },\n    {\n      id: '2',\n      sender: 'John Doe',\n      message: 'Hello everyone! Great to see you all here.',\n      timestamp: new Date(),\n      type: 'message',\n    },\n    {\n      id: '3',\n      sender: 'Jane Smith',\n      message: 'Thanks for organizing this meeting! 👍',\n      timestamp: new Date(),\n      type: 'message',\n    },\n  ]);\n  const [newMessage, setNewMessage] = useState('');\n  const [showParticipants, setShowParticipants] = useState(false);\n  const [showSettings, setShowSettings] = useState(false);\n  const [isFullscreen, setIsFullscreen] = useState(false);\n  const [callDuration, setCallDuration] = useState(0);\n  const [recording, setRecording] = useState(false);\n  const [meetingInfo] = useState({\n    title: 'Team Standup Meeting',\n    id: 'meet-abc-123-def',\n    startTime: new Date(Date.now() - 15 * 60 * 1000), // Started 15 minutes ago\n    participants: participants.length,\n  });\n\n  const chatEndRef = useRef<HTMLDivElement>(null);\n\n  // Update call duration\n  useEffect(() => {\n    const interval = setInterval(() => {\n      setCallDuration((prev) => prev + 1);\n    }, 1000);\n\n    return () => clearInterval(interval);\n  }, []);\n\n  // Auto scroll to bottom of chat\n  useEffect(() => {\n    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });\n  }, [chatMessages]);\n\n  const handleSendMessage = () => {\n    if (!newMessage.trim()) return;\n\n    const message: ChatMessage = {\n      id: Date.now().toString(),\n      sender: 'You',\n      message: newMessage,\n      timestamp: new Date(),\n      type: 'message',\n    };\n\n    setChatMessages((prev) => [...prev, message]);\n    setNewMessage('');\n  };\n\n  const handleKeyPress = (e: React.KeyboardEvent) => {\n    if (e.key === 'Enter' && !e.shiftKey) {\n      e.preventDefault();\n      handleSendMessage();\n    }\n  };\n\n  const formatTime = (seconds: number) => {\n    const hours = Math.floor(seconds / 3600);\n    const minutes = Math.floor((seconds % 3600) / 60);\n    const secs = seconds % 60;\n    \n    if (hours > 0) {\n      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;\n    }\n    return `${minutes}:${secs.toString().padStart(2, '0')}`;\n  };\n\n  const handleEndCall = () => {\n    // Implement end call logic\n    window.location.href = '/';\n  };\n\n  const handleCopyMeetingId = () => {\n    navigator.clipboard.writeText(meetingInfo.id);\n    // Show success notification\n  };\n\n  const toggleFullscreen = () => {\n    if (!document.fullscreenElement) {\n      document.documentElement.requestFullscreen();\n      setIsFullscreen(true);\n    } else {\n      document.exitFullscreen();\n      setIsFullscreen(false);\n    }\n  };\n\n  return (\n    <Layout>\n      <div className=\"relative h-[calc(100vh-8rem)] bg-gradient-to-br from-slate-900 via-purple-900/10 to-slate-900 rounded-3xl overflow-hidden\">\n        {/* Meeting Header */}\n        <motion.div\n          initial={{ y: -50, opacity: 0 }}\n          animate={{ y: 0, opacity: 1 }}\n          className=\"absolute top-0 left-0 right-0 z-30 glass border-b border-white/10 p-4\"\n        >\n          <div className=\"flex items-center justify-between\">\n            <div className=\"flex items-center gap-4\">\n              <div className=\"text-white\">\n                <h1 className=\"text-lg font-semibold\">{meetingInfo.title}</h1>\n                <div className=\"flex items-center gap-4 text-sm text-white/70\">\n                  <div className=\"flex items-center gap-1\">\n                    <Clock size={14} />\n                    <span>{formatTime(callDuration)}</span>\n                  </div>\n                  <div className=\"flex items-center gap-1\">\n                    <Users size={14} />\n                    <span>{participants.length} participants</span>\n                  </div>\n                  <div className=\"flex items-center gap-1\">\n                    <Globe size={14} />\n                    <span>ID: {meetingInfo.id}</span>\n                    <motion.button\n                      whileHover={{ scale: 1.1 }}\n                      whileTap={{ scale: 0.9 }}\n                      onClick={handleCopyMeetingId}\n                      className=\"ml-1 p-1 hover:bg-white/10 rounded\"\n                    >\n                      <Copy size={12} />\n                    </motion.button>\n                  </div>\n                </div>\n              </div>\n            </div>\n\n            <div className=\"flex items-center gap-2\">\n              {recording && (\n                <motion.div\n                  animate={{ opacity: [1, 0.5, 1] }}\n                  transition={{ duration: 1, repeat: Infinity }}\n                  className=\"flex items-center gap-2 bg-red-500/20 border border-red-500/30 text-red-400 px-3 py-1 rounded-full text-sm\"\n                >\n                  <div className=\"w-2 h-2 bg-red-500 rounded-full\" />\n                  Recording\n                </motion.div>\n              )}\n\n              <motion.button\n                whileHover={{ scale: 1.05 }}\n                whileTap={{ scale: 0.95 }}\n                onClick={() => setShowParticipants(!showParticipants)}\n                className=\"control-button p-2\"\n              >\n                <Users size={16} />\n              </motion.button>\n\n              <motion.button\n                whileHover={{ scale: 1.05 }}\n                whileTap={{ scale: 0.95 }}\n                onClick={() => setShowSettings(!showSettings)}\n                className=\"control-button p-2\"\n              >\n                <Settings size={16} />\n              </motion.button>\n\n              <motion.button\n                whileHover={{ scale: 1.05 }}\n                whileTap={{ scale: 0.95 }}\n                onClick={toggleFullscreen}\n                className=\"control-button p-2\"\n              >\n                {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}\n              </motion.button>\n            </div>\n          </div>\n        </motion.div>\n\n        {/* Main Content Area */}\n        <div className=\"flex h-full pt-20 pb-4\">\n          {/* Video Grid */}\n          <div className={`flex-1 transition-all duration-300 ${\n            isChatOpen || showParticipants ? 'mr-80' : ''\n          }`}>\n            <VideoGrid\n              participants={participants}\n              onPinParticipant={pinParticipant}\n              onRemoveParticipant={removeParticipant}\n              layout=\"grid\"\n              maxParticipantsVisible={9}\n            />\n          </div>\n\n          {/* Chat Sidebar */}\n          <AnimatePresence>\n            {isChatOpen && (\n              <motion.div\n                initial={{ x: 320, opacity: 0 }}\n                animate={{ x: 0, opacity: 1 }}\n                exit={{ x: 320, opacity: 0 }}\n                transition={{ type: 'spring', stiffness: 300, damping: 30 }}\n                className=\"absolute top-20 right-0 bottom-4 w-80 glass border-l border-white/10\"\n              >\n                <div className=\"flex flex-col h-full\">\n                  {/* Chat Header */}\n                  <div className=\"flex items-center justify-between p-4 border-b border-white/10\">\n                    <h3 className=\"text-white font-semibold flex items-center gap-2\">\n                      <MessageSquare size={16} />\n                      Chat\n                    </h3>\n                    <motion.button\n                      whileHover={{ scale: 1.1 }}\n                      whileTap={{ scale: 0.9 }}\n                      onClick={() => setIsChatOpen(false)}\n                      className=\"text-white/70 hover:text-white p-1 hover:bg-white/10 rounded\"\n                    >\n                      <X size={16} />\n                    </motion.button>\n                  </div>\n\n                  {/* Chat Messages */}\n                  <div className=\"flex-1 overflow-y-auto p-4 space-y-3\">\n                    <AnimatePresence>\n                      {chatMessages.map((message, index) => (\n                        <motion.div\n                          key={message.id}\n                          initial={{ opacity: 0, y: 20 }}\n                          animate={{ opacity: 1, y: 0 }}\n                          transition={{ delay: index * 0.05 }}\n                          className={`\n                            ${message.type === 'system'\n                              ? 'text-center text-white/60 text-sm'\n                              : message.sender === 'You'\n                              ? 'flex justify-end'\n                              : 'flex justify-start'\n                            }\n                          `}\n                        >\n                          {message.type !== 'system' && (\n                            <div className={`\n                              chat-bubble max-w-[85%]\n                              ${message.sender === 'You' ? 'sent' : 'received'}\n                            `}>\n                              {message.sender !== 'You' && (\n                                <div className=\"text-xs text-white/60 mb-1 font-medium\">\n                                  {message.sender}\n                                </div>\n                              )}\n                              <div className=\"text-sm\">{message.message}</div>\n                              <div className=\"text-xs text-white/40 mt-1\">\n                                {message.timestamp.toLocaleTimeString([], {\n                                  hour: '2-digit',\n                                  minute: '2-digit',\n                                })}\n                              </div>\n                            </div>\n                          )}\n                          {message.type === 'system' && (\n                            <div>{message.message}</div>\n                          )}\n                        </motion.div>\n                      ))}\n                    </AnimatePresence>\n                    <div ref={chatEndRef} />\n                  </div>\n\n                  {/* Chat Input */}\n                  <div className=\"p-4 border-t border-white/10\">\n                    <div className=\"flex items-end gap-2\">\n                      <div className=\"flex-1 relative\">\n                        <textarea\n                          value={newMessage}\n                          onChange={(e) => setNewMessage(e.target.value)}\n                          onKeyPress={handleKeyPress}\n                          placeholder=\"Type a message...\"\n                          rows={1}\n                          className=\"input-modern resize-none min-h-[2.5rem] max-h-24\"\n                        />\n                      </div>\n                      <div className=\"flex gap-1\">\n                        <motion.button\n                          whileHover={{ scale: 1.1 }}\n                          whileTap={{ scale: 0.9 }}\n                          className=\"control-button p-2\"\n                        >\n                          <Smile size={16} />\n                        </motion.button>\n                        <motion.button\n                          whileHover={{ scale: 1.1 }}\n                          whileTap={{ scale: 0.9 }}\n                          className=\"control-button p-2\"\n                        >\n                          <Paperclip size={16} />\n                        </motion.button>\n                        <motion.button\n                          whileHover={{ scale: 1.1 }}\n                          whileTap={{ scale: 0.9 }}\n                          onClick={handleSendMessage}\n                          disabled={!newMessage.trim()}\n                          className=\"btn-primary p-2 disabled:opacity-50\"\n                        >\n                          <Send size={16} />\n                        </motion.button>\n                      </div>\n                    </div>\n                  </div>\n                </div>\n              </motion.div>\n            )}\n          </AnimatePresence>\n\n          {/* Participants Sidebar */}\n          <AnimatePresence>\n            {showParticipants && (\n              <motion.div\n                initial={{ x: 320, opacity: 0 }}\n                animate={{ x: 0, opacity: 1 }}\n                exit={{ x: 320, opacity: 0 }}\n                transition={{ type: 'spring', stiffness: 300, damping: 30 }}\n                className=\"absolute top-20 right-0 bottom-4 w-80 glass border-l border-white/10\"\n              >\n                <div className=\"flex flex-col h-full\">\n                  {/* Participants Header */}\n                  <div className=\"flex items-center justify-between p-4 border-b border-white/10\">\n                    <h3 className=\"text-white font-semibold flex items-center gap-2\">\n                      <Users size={16} />\n                      Participants ({participants.length})\n                    </h3>\n                    <motion.button\n                      whileHover={{ scale: 1.1 }}\n                      whileTap={{ scale: 0.9 }}\n                      onClick={() => setShowParticipants(false)}\n                      className=\"text-white/70 hover:text-white p-1 hover:bg-white/10 rounded\"\n                    >\n                      <X size={16} />\n                    </motion.button>\n                  </div>\n\n                  {/* Participants List */}\n                  <div className=\"flex-1 overflow-y-auto p-4 space-y-2\">\n                    {participants.map((participant, index) => (\n                      <motion.div\n                        key={participant.id}\n                        initial={{ opacity: 0, x: 20 }}\n                        animate={{ opacity: 1, x: 0 }}\n                        transition={{ delay: index * 0.05 }}\n                        className=\"glass-card p-3 rounded-xl border border-white/10\"\n                      >\n                        <div className=\"flex items-center gap-3\">\n                          <div className={`\n                            w-10 h-10 rounded-full bg-gradient-to-r flex items-center justify-center text-white text-sm font-bold\n                            ${participant.isHost ? 'from-yellow-500 to-orange-500' : 'from-purple-500 to-pink-500'}\n                          `}>\n                            {participant.name.charAt(0).toUpperCase()}\n                          </div>\n                          <div className=\"flex-1\">\n                            <div className=\"flex items-center gap-2\">\n                              <span className=\"text-white font-medium text-sm\">\n                                {participant.name}\n                              </span>\n                              {participant.isHost && (\n                                <span className=\"text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full\">\n                                  Host\n                                </span>\n                              )}\n                              {participant.isLocalUser && (\n                                <span className=\"text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full\">\n                                  You\n                                </span>\n                              )}\n                            </div>\n                            <div className=\"flex items-center gap-2 mt-1\">\n                              <div className={`\n                                w-2 h-2 rounded-full\n                                ${participant.isAudioEnabled ? 'bg-green-500' : 'bg-red-500'}\n                              `} />\n                              <Mic size={10} className={participant.isAudioEnabled ? 'text-green-400' : 'text-red-400'} />\n                              <Video size={10} className={participant.isVideoEnabled ? 'text-blue-400' : 'text-gray-400'} />\n                            </div>\n                          </div>\n                        </div>\n                      </motion.div>\n                    ))}\n                  </div>\n                </div>\n              </motion.div>\n            )}\n          </AnimatePresence>\n        </div>\n\n        {/* Control Panel */}\n        <ControlPanel\n          isVideoEnabled={isVideoEnabled}\n          isAudioEnabled={isAudioEnabled}\n          isScreenSharing={isScreenSharing}\n          isChatOpen={isChatOpen}\n          participantCount={participants.length}\n          onVideoToggle={toggleVideo}\n          onAudioToggle={toggleAudio}\n          onScreenShareToggle={toggleScreenShare}\n          onChatToggle={() => setIsChatOpen(!isChatOpen)}\n          onEndCall={handleEndCall}\n          onSettingsOpen={() => setShowSettings(true)}\n        />\n      </div>\n    </Layout>\n  );\n};\n\nexport default VideoCall;
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useVideoStore } from '../store/videoStore';
+import VideoGrid from '../components/VideoGrid-enhanced';
+import ControlPanel from '../components/ControlPanel-enhanced';
+import Layout from '../components/Layout-enhanced';
+import {
+  MessageSquare,
+  X,
+  Send,
+  Smile,
+  Paperclip,
+  Users,
+  Settings,
+  Monitor,
+  Mic,
+  Video,
+  Phone,
+  Copy,
+  Share,
+  Calendar,
+  Clock,
+  Globe,
+  ChevronDown,
+  ChevronUp,
+  Maximize,
+  Minimize
+} from 'lucide-react';
+
+interface ChatMessage {
+  id: string;
+  sender: string;
+  message: string;
+  timestamp: Date;
+  type: 'message' | 'system' | 'reaction';
+}
+
+const VideoCall: React.FC = () => {
+  const {
+    participants,
+    isVideoEnabled,
+    isAudioEnabled,
+    isScreenSharing,
+    toggleVideo,
+    toggleAudio,
+    toggleScreenShare,
+    addParticipant,
+    removeParticipant,
+    pinParticipant,
+  } = useVideoStore();
+
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: '1',
+      sender: 'System',
+      message: 'Welcome to the video call! ',
+      timestamp: new Date(),
+      type: 'system',
+    },
+    {
+      id: '2',
+      sender: 'John Doe',
+      message: 'Hello everyone! Great to see you all here.',
+      timestamp: new Date(),
+      type: 'message',
+    },
+    {
+      id: '3',
+      sender: 'Jane Smith',
+      message: 'Thanks for organizing this meeting! ',
+      timestamp: new Date(),
+      type: 'message',
+    },
+  ]);
+  const [newMessage, setNewMessage] = useState('');
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+  const [recording, setRecording] = useState(false);
+  const [meetingInfo] = useState({
+    title: 'Team Standup Meeting',
+    id: 'meet-abc-123-def',
+    startTime: new Date(Date.now() - 15 * 60 * 1000), // Started 15 minutes ago
+    participants: participants.length,
+  });
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Update call duration
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCallDuration((prev) => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto scroll to bottom of chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  const handleSendMessage = () => {
+    if (!newMessage.trim()) return;
+
+    const message: ChatMessage = {
+      id: Date.now().toString(),
+      sender: 'You',
+      message: newMessage,
+      timestamp: new Date(),
+      type: 'message',
+    };
+
+    setChatMessages((prev) => [...prev, message]);
+    setNewMessage('');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleEndCall = () => {
+    // Implement end call logic
+    window.location.href = '/';
+  };
+
+  const handleCopyMeetingId = () => {
+    navigator.clipboard.writeText(meetingInfo.id);
+    // Show success notification
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  return (
+    <Layout>
+      <div className="relative h-[calc(100vh-8rem)] bg-gradient-to-br from-slate-900 via-purple-900/10 to-slate-900 rounded-3xl overflow-hidden">
+        {/* Meeting Header */}
+        <motion.div
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="absolute top-0 left-0 right-0 z-30 glass border-b border-white/10 p-4"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="text-white">
+                <h1 className="text-lg font-semibold">{meetingInfo.title}</h1>
+                <div className="flex items-center gap-4 text-sm text-white/70">
+                  <div className="flex items-center gap-1">
+                    <Clock size={14} />
+                    <span>{formatTime(callDuration)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Users size={14} />
+                    <span>{participants.length} participants</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Globe size={14} />
+                    <span>ID: {meetingInfo.id}</span>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={handleCopyMeetingId}
+                      className="ml-1 p-1 hover:bg-white/10 rounded"
+                    >
+                      <Copy size={12} />
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {recording && (
+                <motion.div
+                  animate={{ opacity: [1, 0.5, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="flex items-center gap-2 bg-red-500/20 border border-red-500/30 text-red-400 px-3 py-1 rounded-full text-sm"
+                >
+                  <div className="w-2 h-2 bg-red-500 rounded-full" />
+                  Recording
+                </motion.div>
+              )}
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowParticipants(!showParticipants)}
+                className="control-button p-2"
+              >
+                <Users size={16} />
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowSettings(!showSettings)}
+                className="control-button p-2"
+              >
+                <Settings size={16} />
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={toggleFullscreen}
+                className="control-button p-2"
+              >
+                {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Main Content Area */}
+        <div className="flex h-full pt-20 pb-4">
+          {/* Video Grid */}
+          <div className={`flex-1 transition-all duration-300 ${
+            isChatOpen || showParticipants ? 'mr-80' : ''
+          }`}>
+            <VideoGrid
+              participants={participants}
+              onPinParticipant={pinParticipant}
+              onRemoveParticipant={removeParticipant}
+              layout="grid"
+              maxParticipantsVisible={9}
+            />
+          </div>
+
+          {/* Chat Sidebar */}
+          <AnimatePresence>
+            {isChatOpen && (
+              <motion.div
+                initial={{ x: 320, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 320, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="absolute top-20 right-0 bottom-4 w-80 glass border-l border-white/10"
+              >
+                <div className="flex flex-col h-full">
+                  {/* Chat Header */}
+                  <div className="flex items-center justify-between p-4 border-b border-white/10">
+                    <h3 className="text-white font-semibold flex items-center gap-2">
+                      <MessageSquare size={16} />
+                      Chat
+                    </h3>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setIsChatOpen(false)}
+                      className="text-white/70 hover:text-white p-1 hover:bg-white/10 rounded"
+                    >
+                      <X size={16} />
+                    </motion.button>
+                  </div>
+
+                  {/* Chat Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    <AnimatePresence>
+                      {chatMessages.map((message, index) => (
+                        <motion.div
+                          key={message.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className={`
+                            ${message.type === 'system'
+                              ? 'text-center text-white/60 text-sm'
+                              : message.sender === 'You'
+                              ? 'flex justify-end'
+                              : 'flex justify-start'
+                            }
+                          `}
+                        >
+                          {message.type !== 'system' && (
+                            <div className={`
+                              chat-bubble max-w-[85%]
+                              ${message.sender === 'You' ? 'sent' : 'received'}
+                            `}>
+                              {message.sender !== 'You' && (
+                                <div className="text-xs text-white/60 mb-1 font-medium">
+                                  {message.sender}
+                                </div>
+                              )}
+                              <div className="text-sm">{message.message}</div>
+                              <div className="text-xs text-white/40 mt-1">
+                                {message.timestamp.toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {message.type === 'system' && (
+                            <div>{message.message}</div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {/* Chat Input */}
+                  <div className="p-4 border-t border-white/10">
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1 relative">
+                        <textarea
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyPress={handleKeyPress}
+                          placeholder="Type a message..."
+                          rows={1}
+                          className="input-modern resize-none min-h-[2.5rem] max-h-24"
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="control-button p-2"
+                        >
+                          <Smile size={16} />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="control-button p-2"
+                        >
+                          <Paperclip size={16} />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={handleSendMessage}
+                          disabled={!newMessage.trim()}
+                          className="btn-primary p-2 disabled:opacity-50"
+                        >
+                          <Send size={16} />
+                        </motion.button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Participants Sidebar */}
+          <AnimatePresence>
+            {showParticipants && (
+              <motion.div
+                initial={{ x: 320, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 320, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="absolute top-20 right-0 bottom-4 w-80 glass border-l border-white/10"
+              >
+                <div className="flex flex-col h-full">
+                  {/* Participants Header */}
+                  <div className="flex items-center justify-between p-4 border-b border-white/10">
+                    <h3 className="text-white font-semibold flex items-center gap-2">
+                      <Users size={16} />
+                      Participants ({participants.length})
+                    </h3>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setShowParticipants(false)}
+                      className="text-white/70 hover:text-white p-1 hover:bg-white/10 rounded"
+                    >
+                      <X size={16} />
+                    </motion.button>
+                  </div>
+
+                  {/* Participants List */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                    {participants.map((participant, index) => (
+                      <motion.div
+                        key={participant.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="glass-card p-3 rounded-xl border border-white/10"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`
+                            w-10 h-10 rounded-full bg-gradient-to-r flex items-center justify-center text-white text-sm font-bold
+                            ${participant.isHost ? 'from-yellow-500 to-orange-500' : 'from-purple-500 to-pink-500'}
+                          `}>
+                            {participant.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-medium text-sm">
+                                {participant.name}
+                              </span>
+                              {participant.isHost && (
+                                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">
+                                  Host
+                                </span>
+                              )}
+                              {participant.isLocalUser && (
+                                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className={`
+                                w-2 h-2 rounded-full
+                                ${participant.isAudioEnabled ? 'bg-green-500' : 'bg-red-500'}
+                              `} />
+                              <Mic size={10} className={participant.isAudioEnabled ? 'text-green-400' : 'text-red-400'} />
+                              <Video size={10} className={participant.isVideoEnabled ? 'text-blue-400' : 'text-gray-400'} />
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Control Panel */}
+        <ControlPanel
+          isVideoEnabled={isVideoEnabled}
+          isAudioEnabled={isAudioEnabled}
+          isScreenSharing={isScreenSharing}
+          isChatOpen={isChatOpen}
+          participantCount={participants.length}
+          onVideoToggle={toggleVideo}
+          onAudioToggle={toggleAudio}
+          onScreenShareToggle={toggleScreenShare}
+          onChatToggle={() => setIsChatOpen(!isChatOpen)}
+          onEndCall={handleEndCall}
+          onSettingsOpen={() => setShowSettings(true)}
+        />
+      </div>
+    </Layout>
+  );
+};
+
+export default VideoCall;

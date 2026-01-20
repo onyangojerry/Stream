@@ -22,7 +22,6 @@ export interface AuthState {
   clearError: () => void
   updateProfile: (updates: Partial<User>) => void
   createDemoUser: () => Promise<void>
-  createDemoUser: () => Promise<void>
 }
 
 // Simulated user database (in a real app, this would be an API)

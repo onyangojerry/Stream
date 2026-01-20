@@ -1,0 +1,206 @@
+/* Mobile-first responsive utilities for better screen optimization */
+
+/* Mobile (default) - up to 639px */
+.container-responsive {
+  @apply px-3 py-4;
+}
+
+.text-responsive-xl {
+  @apply text-2xl;
+}
+
+.text-responsive-lg {
+  @apply text-lg;
+}
+
+.text-responsive-base {
+  @apply text-sm;
+}
+
+.spacing-responsive {
+  @apply space-y-4;
+}
+
+.grid-responsive {
+  @apply grid grid-cols-1;
+}
+
+.button-responsive {
+  @apply px-4 py-2 text-sm;
+}
+
+.card-responsive {
+  @apply p-4;
+}
+
+/* Small screens (sm) - 640px and up */
+@screen sm {
+  .container-responsive {
+    @apply px-6 py-6;
+  }
+  
+  .text-responsive-xl {
+    @apply text-3xl;
+  }
+  
+  .text-responsive-lg {
+    @apply text-xl;
+  }
+  
+  .text-responsive-base {
+    @apply text-base;
+  }
+  
+  .spacing-responsive {
+    @apply space-y-6;
+  }
+  
+  .grid-responsive {
+    @apply grid-cols-2;
+  }
+  
+  .button-responsive {
+    @apply px-6 py-3 text-base;
+  }
+  
+  .card-responsive {
+    @apply p-6;
+  }
+}
+
+/* Medium screens (md) - 768px and up */
+@screen md {
+  .grid-responsive {
+    @apply grid-cols-2;
+  }
+}
+
+/* Large screens (lg) - 1024px and up */
+@screen lg {
+  .text-responsive-xl {
+    @apply text-4xl;
+  }
+  
+  .text-responsive-lg {
+    @apply text-2xl;
+  }
+  
+  .text-responsive-base {
+    @apply text-lg;
+  }
+  
+  .spacing-responsive {
+    @apply space-y-8;
+  }
+  
+  .grid-responsive {
+    @apply grid-cols-3;
+  }
+}
+
+/* Extra large screens (xl) - 1280px and up */
+@screen xl {
+  .grid-responsive {
+    @apply grid-cols-4;
+  }
+}
+
+/* Responsive backgrounds */
+.bg-responsive {
+  @apply -top-20 -right-16 w-48 h-48 blur-2xl;
+}
+
+@screen sm {
+  .bg-responsive {
+    @apply -top-40 -right-32 w-96 h-96 blur-3xl;
+  }
+}
+
+/* Responsive icons */
+.icon-responsive {
+  @apply w-4 h-4;
+}
+
+@screen sm {
+  .icon-responsive {
+    @apply w-5 h-5;
+  }
+}
+
+/* Responsive controls */
+.control-responsive {
+  @apply w-10 h-10 p-2;
+}
+
+@screen sm {
+  .control-responsive {
+    @apply w-12 h-12 p-3;
+  }
+}
+
+/* Responsive modal */
+.modal-responsive {
+  @apply max-w-sm mx-4;
+}
+
+@screen sm {
+  .modal-responsive {
+    @apply max-w-2xl mx-6;
+  }
+}
+
+@screen lg {
+  .modal-responsive {
+    @apply max-w-4xl;
+  }
+}
+
+/* Responsive flexbox */
+.flex-responsive {
+  @apply flex-col;
+}
+
+@screen sm {
+  .flex-responsive {
+    @apply flex-row;
+  }
+}
+
+/* Responsive gap */
+.gap-responsive {
+  @apply gap-4;
+}
+
+@screen sm {
+  .gap-responsive {
+    @apply gap-6;
+  }
+}
+
+@screen lg {
+  .gap-responsive {
+    @apply gap-8;
+  }
+}
+
+/* Hide on mobile */
+.hide-mobile {
+  @apply hidden;
+}
+
+@screen sm {
+  .hide-mobile {
+    @apply block;
+  }
+}
+
+/* Show only on mobile */
+.show-mobile {
+  @apply block;
+}
+
+@screen sm {
+  .show-mobile {
+    @apply hidden;
+  }
+}

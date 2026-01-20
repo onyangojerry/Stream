@@ -38,7 +38,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-    };\n  }, []);
+    };
+  }, []);
 
   const navigation = [
     { name: 'Home', href: '/', icon: Home, gradient: 'from-purple-500 to-pink-500' },
@@ -149,7 +150,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${\n                isOnline \n                  ? 'bg-green-500/20 text-green-400 border border-green-500/30' \n                  : 'bg-red-500/20 text-red-400 border border-red-500/30'\n              }`}
+              className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+                isOnline 
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
+              }`}
             >
               {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
               {isOnline ? 'Online' : 'Offline'}
@@ -211,7 +216,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
-        )}\n      </AnimatePresence>
+        )}
+      </AnimatePresence>
 
       {/* Mobile Sidebar */}
       <AnimatePresence>
@@ -268,7 +274,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         </span>
                       </motion.a>
                     </motion.li>
-                  ))}\n                </ul>
+                  ))}
+                </ul>
               </nav>
 
               {/* Sidebar Footer */}

@@ -7,11 +7,15 @@ import ProtectedRoute from './components/ProtectedRoute'
 // Lazy load all pages for faster initial load
 const Home = lazy(() => import('./pages/Home-improved'))
 const VideoCall = lazy(() => import('./pages/VideoCall'))
+const JoinMeeting = lazy(() => import('./pages/JoinMeeting'))
 const Webinar = lazy(() => import('./pages/Webinar'))
 const GroupCall = lazy(() => import('./pages/GroupCall'))
 const Scheduler = lazy(() => import('./pages/Scheduler'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
+const RecordingTestPage = lazy(() => import('./pages/RecordingTestPage'))
+const TranscriptionTest = lazy(() => import('./pages/TranscriptionTest'))
+const ViewRecordings = lazy(() => import('./pages/ViewRecordings-store'))
 
 // Loading component for lazy-loaded pages
 const PageLoader = () => (
@@ -48,14 +52,19 @@ function App() {
             </Layout>
           } />
           
-          {/* Protected Routes */}
-          <Route path="/call/:roomId" element={
-            <ProtectedRoute>
-              <Layout>
-                <VideoCall />
-              </Layout>
-            </ProtectedRoute>
+          {/* Public Routes */}
+          <Route path="/join" element={
+            <Layout>
+              <JoinMeeting />
+            </Layout>
           } />
+          <Route path="/call/:roomId" element={
+            <Layout>
+              <VideoCall />
+            </Layout>
+          } />
+          
+          {/* Protected Routes */}
           <Route path="/webinar/:roomId" element={
             <ProtectedRoute>
               <Layout>
@@ -76,6 +85,19 @@ function App() {
                 <Scheduler />
               </Layout>
             </ProtectedRoute>
+          } />
+          <Route path="/recordings" element={
+            <ProtectedRoute>
+              <Layout>
+                <ViewRecordings onBack={() => window.history.back()} />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/test-recording" element={
+            <RecordingTestPage />
+          } />
+          <Route path="/test-transcription" element={
+            <TranscriptionTest />
           } />
           </Routes>
         </Suspense>

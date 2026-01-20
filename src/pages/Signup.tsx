@@ -58,8 +58,17 @@ const Signup = () => {
 
     if (success) {
       toast.success('Account created successfully!')
-      const from = location.state?.from?.pathname || '/'
-      navigate(from, { replace: true })
+      
+      // Check for pending join data
+      const pendingJoin = sessionStorage.getItem('pendingJoin')
+      if (pendingJoin) {
+        sessionStorage.removeItem('pendingJoin')
+        const joinConfig = JSON.parse(pendingJoin)
+        navigate(`/call/${joinConfig.meetingId}`, { replace: true })
+      } else {
+        const from = location.state?.from?.pathname || '/'
+        navigate(from, { replace: true })
+      }
     }
   }
 

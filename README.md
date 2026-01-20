@@ -2,16 +2,16 @@
 
 A cutting-edge, feature-rich video communication platform built with React 18, TypeScript, and WebRTC. Stream provides a comprehensive solution for modern video communication including webinars, one-on-one calls, and group meetings with advanced features like real-time transcription, sign language detection, collaborative documents, intelligent waiting rooms, and seamless screen sharing.
 
-## ✨ Key Highlights
+## Key Highlights
 
-- **🚀 Production Ready**: Deployed on Netlify with automated CI/CD
-- **🔐 Secure**: WebRTC peer-to-peer connections with optional authentication
-- **📱 Responsive**: Works seamlessly on desktop, tablet, and mobile devices
-- **🎨 Modern UI**: Clean, intuitive interface with dark/light mode support
-- **⚡ Fast**: Built with Vite for lightning-fast development and builds
-- **🧩 Modular**: Component-based architecture for easy customization
+- **Production Ready**: Deployed on Netlify with automated CI/CD
+- **Secure**: WebRTC peer-to-peer connections with optional authentication
+- **Responsive**: Works seamlessly on desktop, tablet, and mobile devices
+- **Modern UI**: Clean, intuitive interface with dark/light mode support
+- **Fast**: Built with Vite for lightning-fast development and builds
+- **Modular**: Component-based architecture for easy customization
 
-## 🚀 Features
+## Features
 
 ### Core Video Communication
 - **One-on-One Calls**: Private HD video calls with crystal-clear audio
@@ -41,7 +41,7 @@ A cutting-edge, feature-rich video communication platform built with React 18, T
 - **Floating Controls**: Easy-to-access control panel that doesn't obstruct content
 - **Performance Optimized**: Code splitting and lazy loading for fast initial loads
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Frontend Architecture
 - **React 18**: Latest React with concurrent features and Suspense
@@ -72,7 +72,7 @@ A cutting-edge, feature-rich video communication platform built with React 18, T
 - **TypeScript ESLint**: TypeScript-specific linting
 - **Terser**: JavaScript minification for production builds
 
-## 📦 Installation & Setup
+## Installation & Setup
 
 ### Prerequisites
 - **Node.js 18+**: Download from [nodejs.org](https://nodejs.org/)
@@ -117,7 +117,7 @@ npm run preview
 - `npm run lint` - Run ESLint for code quality checks
 - `npm run preview` - Preview production build locally
 
-## 🎯 Usage Guide
+## Usage Guide
 
 ### Getting Started
 
@@ -141,10 +141,10 @@ npm run preview
 ### Core Features Usage
 
 #### Video & Audio Controls
-- **🎤 Mute/Unmute**: Toggle microphone (Space bar shortcut)
-- **📹 Camera On/Off**: Toggle video feed
-- **🔊 Audio Settings**: Adjust microphone and speaker levels
-- **🎬 Video Quality**: Switch between 720p, 1080p, and 4K
+- **Mute/Unmute**: Toggle microphone (Space bar shortcut)
+- **Camera On/Off**: Toggle video feed
+- **Audio Settings**: Adjust microphone and speaker levels
+- **Video Quality**: Switch between 720p, 1080p, and 4K
 
 #### Screen Sharing
 - **Start Sharing**: Click monitor icon, select screen/window/tab
@@ -152,16 +152,16 @@ npm run preview
 - **Stop Sharing**: Click monitor icon again or use browser stop sharing button
 
 #### Real-time Features
-- **💬 Live Chat**: Send messages, share files, emoji reactions
-- **📝 Transcription**: Toggle speech-to-text, download transcripts
-- **🤝 Sign Language**: Enable sign language detection and translation
-- **📄 Collaborative Docs**: Create and edit shared documents
+- **Live Chat**: Send messages, share files, emoji reactions
+- **Transcription**: Toggle speech-to-text, download transcripts
+- **Sign Language**: Enable sign language detection and translation
+- **Collaborative Docs**: Create and edit shared documents
 
 #### Meeting Management
-- **👥 Participants**: View attendee list, manage permissions
-- **⏱️ Duration**: Track meeting time with built-in timer
-- **⏺️ Recording**: Start/stop local recording, download files
-- **🚪 Waiting Room**: Manage attendee approval queue
+- **Participants**: View attendee list, manage permissions
+- **Duration**: Track meeting time with built-in timer
+- **Recording**: Start/stop local recording, download files
+- **Waiting Room**: Manage attendee approval queue
 
 ### Advanced Features
 
@@ -196,7 +196,7 @@ The platform offers three transcription modes:
 - **Performance Monitoring**: Real-time connection quality indicators
 - **Bandwidth Optimization**: Smart compression and streaming protocols
 
-## ⚙️ Configuration & Customization
+## Configuration & Customization
 
 ### Environment Variables
 Create a `.env` file in the root directory for custom configuration:
@@ -261,7 +261,7 @@ const rtcConfig = {
 - **Bundle Analysis**: Use `npm run build` to see chunk sizes
 - **Memory Management**: Automatic cleanup of streams and connections
 
-## 🌍 Browser Support & Compatibility
+## Browser Support & Compatibility
 
 ### Supported Browsers
 | Browser | Version | WebRTC | Screen Share | Recording |
@@ -282,7 +282,7 @@ const rtcConfig = {
 - **Screen Recording**: Required for screen sharing (desktop only)
 - **Notifications**: Optional, for better user experience
 
-## 🔒 Privacy & Security
+## Privacy & Security
 
 ### Data Protection
 - **No Server Storage**: All communication is peer-to-peer via WebRTC
@@ -302,7 +302,7 @@ const rtcConfig = {
 - **Recording Consent**: Clear indication when recording is active
 - **Data Retention**: Local storage only, no cloud backup by default
 
-## 🚀 Deployment
+## Deployment
 
 ### Netlify Deployment (Recommended)
 
@@ -485,7 +485,7 @@ exchangeOffers() →
 establishConnection()
 ```
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions from the community! Here's how to get involved:
 
@@ -545,20 +545,20 @@ const Component: React.FC<ComponentProps> = ({ prop }) => {
 4. **Review Process**: All PRs require review before merging
 
 ### Areas for Contribution
-- 🐛 **Bug Fixes**: Help fix issues reported by users
-- ✨ **New Features**: Add features from the roadmap
-- 📚 **Documentation**: Improve documentation and examples
-- 🎨 **UI/UX**: Enhance user interface and experience
-- ⚡ **Performance**: Optimize application performance
-- 🔒 **Security**: Strengthen security measures
+- **Bug Fixes**: Help fix issues reported by users
+- **New Features**: Add features from the roadmap
+- **Documentation**: Improve documentation and examples
+- **UI/UX**: Enhance user interface and experience
+- **Performance**: Optimize application performance
+- **Security**: Strengthen security measures
 
-## 🆘 Support & Community
+## Support & Community
 
 ### Getting Help
-- **📚 Documentation**: Check this README and code comments
-- **🐛 Issues**: Create an issue for bugs or feature requests
-- **💬 Discussions**: Use GitHub Discussions for questions
-- **📧 Contact**: Reach out via the contact information in the repository
+- **Documentation**: Check this README and code comments
+- **Issues**: Create an issue for bugs or feature requests
+- **Discussions**: Use GitHub Discussions for questions
+- **Contact**: Reach out via the contact information in the repository
 
 ### Issue Reporting
 When reporting bugs, please include:
@@ -577,7 +577,7 @@ For new feature suggestions:
 - Consider implementation complexity
 - Provide mockups or examples if possible
 
-## 📄 License & Legal
+## License & Legal
 
 ### MIT License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -594,11 +594,11 @@ This project uses several open-source libraries:
 - **Simple Peer**: WebRTC wrapper (MIT License)
 
 ### Usage Rights
-- ✅ **Commercial Use**: Use in commercial projects
-- ✅ **Modification**: Modify the source code
-- ✅ **Distribution**: Distribute copies of the software
-- ✅ **Private Use**: Use for private purposes
-- ❗ **Liability**: No warranty provided
+- **Commercial Use**: Use in commercial projects
+- **Modification**: Modify the source code
+- **Distribution**: Distribute copies of the software
+- **Private Use**: Use for private purposes
+- **Liability**: No warranty provided
 
 ## 🔮 Roadmap & Future Development
 
@@ -632,6 +632,6 @@ Vote on features and contribute ideas:
 
 ---
 
-**Built with ❤️ using modern web technologies**
+**Built with care using modern web technologies**
 
-*Striim is an open-source project dedicated to making high-quality video communication accessible to everyone. Join our community of developers, designers, and users working together to build the future of digital communication.*
+*Stream is an open-source project dedicated to making high-quality video communication accessible to everyone. Join our community of developers, designers, and users working together to build the future of digital communication.*

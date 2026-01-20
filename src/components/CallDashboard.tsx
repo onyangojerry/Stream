@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
+import RecordingControls from './RecordingControls'
 
 interface CallDashboardProps {
   roomId: string
@@ -230,9 +231,18 @@ const CallDashboard = ({ roomId, callType, onStartCall }: CallDashboardProps) =>
                 <div className="space-y-4">
                   <div className="flex items-center justify-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                     <span>Room ID: {roomId}</span>
-                    <span>•</span>
+                    <span></span>
                     <span>Ready to start</span>
                   </div>
+                  
+                  {/* Recording Controls */}
+                  <div className="flex justify-center">
+                    <RecordingControls 
+                      meetingId={roomId}
+                      className="mb-4"
+                    />
+                  </div>
+                  
                   <button
                     onClick={handleStartCall}
                     className={`px-8 py-3 bg-gradient-to-r ${callInfo.color} text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200 transform hover:scale-105`}

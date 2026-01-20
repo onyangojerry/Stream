@@ -2,7 +2,7 @@
 
 This document outlines the development workflows, coding standards, and best practices for the Stream video communication platform.
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Development Workflow](#development-workflow)
 - [Git Workflow](#git-workflow)
@@ -11,8 +11,11 @@ This document outlines the development workflows, coding standards, and best pra
 - [Release Workflow](#release-workflow)
 - [Debugging Guide](#debugging-guide)
 - [Performance Optimization](#performance-optimization)
+- [Team Collaboration](#team-collaboration)
+- [Quality Assurance](#quality-assurance)
+- [Deployment Pipeline](#deployment-pipeline)
 
-## 🔄 Development Workflow
+## Development Workflow
 
 ### Initial Setup
 
@@ -39,15 +42,293 @@ This document outlines the development workflows, coding standards, and best pra
      - Tailwind CSS IntelliSense
      - Auto Rename Tag
      - Bracket Pair Colorizer
+     - GitLens
+     - Error Lens
    - **Settings**: Enable format on save, TypeScript suggestions
 
-### Daily Development Process
+### Git Workflow
 
-#### 1. Feature Development Cycle
-```mermaid
-graph LR
-    A[Create Feature Branch] --> B[Implement Feature]
-    B --> C[Write Tests]
+We use **Git Flow** with the following branches:
+
+- **`main`**: Production-ready code
+- **`develop`**: Integration branch for features
+- **`feature/*`**: Individual feature development
+- **`hotfix/*`**: Critical production fixes
+- **`release/*`**: Prepare releases
+
+### Branch Naming Convention
+
+```bash
+feature/video-call-recording
+feature/sign-language-detection
+bugfix/audio-not-working-safari
+hotfix/security-vulnerability-webrtc
+release/v2.1.0
+```
+
+### Commit Message Standards
+
+Follow **Conventional Commits** specification:
+
+```bash
+# Format: <type>[optional scope]: <description>
+
+feat(video): add screen sharing functionality
+fix(audio): resolve echo cancellation issue
+docs(readme): update installation instructions
+style(ui): improve button hover animations
+refactor(store): optimize state management performance
+test(e2e): add meeting creation workflow tests
+chore(deps): update React to v18.2.0
+```
+
+### Commit Types
+- **feat**: New feature
+- **fix**: Bug fix
+- **docs**: Documentation changes
+- **style**: Code style changes (formatting, semicolons, etc.)
+- **refactor**: Code refactoring
+- **test**: Adding or modifying tests
+- **chore**: Build process or auxiliary tool changes
+
+## Code Standards
+
+### TypeScript Guidelines
+
+#### Type Definitions
+```typescript
+// Define interfaces for all props and data structures
+interface VideoCallProps {
+  meetingId: string;
+  participants: Participant[];
+  isHost: boolean;
+  onLeave: () => void;
+}
+
+// Use proper return types
+const processVideoStream = (stream: MediaStream): Promise<ProcessedStream> => {
+  // Implementation
+};
+
+// Avoid 'any' type - use unknown or specific types
+const handleApiResponse = (response: unknown): ApiResponse => {
+  // Type guard implementation
+  if (isApiResponse(response)) {
+    return response;
+  }
+  throw new Error('Invalid API response');
+};
+```
+
+#### React Component Patterns
+```typescript
+// Functional components with proper typing
+import React, { FC, useState, useCallback, useEffect } from 'react';
+
+interface ComponentProps {
+  title: string;
+  onAction?: (id: string) => void;
+  children?: React.ReactNode;
+}
+
+const Component: FC<ComponentProps> = ({ title, onAction, children }) => {
+  const [state, setState] = useState<ComponentState>({});
+  
+  // Use useCallback for event handlers
+  const handleClick = useCallback((id: string) => {
+    onAction?.(id);
+  }, [onAction]);
+  
+  // Use useEffect for side effects
+  useEffect(() => {
+    // Cleanup function
+    return () => {
+      // Cleanup logic
+    };
+  }, []);
+  
+  return (
+    <div>
+      <h2>{title}</h2>
+      {children}
+    </div>
+  );
+};
+```
+
+## Testing Workflow
+
+### Testing Strategy
+
+#### Test Pyramid
+```
+E2E Tests (10%)     - Complete user workflows
+Integration (20%)   - Component interactions
+Unit Tests (70%)    - Individual functions/components
+```
+
+#### Testing Tools
+- **Unit Testing**: Vitest + React Testing Library
+- **Integration Testing**: Vitest + MSW (Mock Service Worker)
+- **E2E Testing**: Playwright
+- **Visual Testing**: Chromatic (Storybook)
+
+#### Test Commands
+```bash
+# Run all tests
+npm run test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run E2E tests
+npm run test:e2e
+
+# Run specific test file
+npm run test -- VideoCallButton.test.tsx
+```
+
+## Release Workflow
+
+### Version Management
+We follow **Semantic Versioning** (SemVer):
+- **MAJOR**: Breaking changes
+- **MINOR**: New features (backward compatible)
+- **PATCH**: Bug fixes (backward compatible)
+
+### Release Steps
+```bash
+# 1. Create release branch
+git checkout develop
+git pull origin develop
+git checkout -b release/v2.1.0
+
+# 2. Update version
+npm version minor # or major/patch
+
+# 3. Update CHANGELOG.md
+# Add release notes
+
+# 4. Commit changes
+git commit -m "chore(release): prepare v2.1.0"
+
+# 5. Push release branch
+git push origin release/v2.1.0
+
+# 6. Create pull request to main
+# After approval and merge:
+
+# 7. Create git tag
+git tag v2.1.0
+git push origin v2.1.0
+
+# 8. Deploy to production
+npm run build
+npm run deploy
+```
+
+## Team Collaboration
+
+### Communication Protocols
+
+#### Daily Communication
+- **Stand-up Meetings**: 9:00 AM daily, 15 minutes maximum
+- **Slack Updates**: Async updates for distributed team members
+- **Blocker Reports**: Immediate escalation of blocking issues
+- **Progress Sharing**: End-of-day summary for major milestones
+
+#### Weekly Coordination
+- **Sprint Planning**: Bi-weekly planning sessions
+- **Architecture Reviews**: Weekly technical design discussions
+- **Cross-team Sync**: Weekly inter-team coordination meetings
+- **Knowledge Sharing**: Tech talks and learning sessions
+
+### Collaboration Tools
+
+#### Development Tools
+- **VS Code Live Share**: Real-time collaborative coding
+- **GitHub Discussions**: Technical architecture discussions
+- **Confluence**: Documentation and knowledge base
+- **Miro**: Collaborative diagramming and brainstorming
+
+#### Communication Platforms
+- **Slack**: Daily communication and quick coordination
+- **Microsoft Teams**: Video meetings and screen sharing
+- **Zoom**: Large group meetings and external presentations
+- **Asana**: Task management and project tracking
+
+## Quality Assurance
+
+### Quality Gates
+
+#### Code Quality
+- **Minimum Test Coverage**: 80% for new code, 70% overall
+- **Code Review**: Mandatory two-reviewer approval
+- **Static Analysis**: ESLint, TypeScript compiler checks
+- **Security Scanning**: Automated vulnerability scanning
+
+#### Performance Standards
+- **Page Load Time**: Under 3 seconds on 3G connection
+- **Time to Interactive**: Under 5 seconds
+- **Lighthouse Score**: Above 90 for Performance, Accessibility, SEO
+- **Bundle Size**: Main bundle under 500KB gzipped
+
+### Testing Standards
+
+#### Unit Testing Requirements
+- **Component Testing**: All components must have unit tests
+- **Utility Function Testing**: 100% coverage for utility functions
+- **Store Testing**: Complete state management test coverage
+- **Error Handling**: Test error scenarios and edge cases
+
+#### Integration Testing Standards
+- **API Integration**: Test all API endpoints and error responses
+- **Component Integration**: Test component interactions and data flow
+- **User Workflow Testing**: Test complete user scenarios
+- **Cross-browser Testing**: Test on Chrome, Firefox, Safari, Edge
+
+## Deployment Pipeline
+
+### Continuous Integration
+
+#### Automated Pipeline Stages
+```yaml
+# CI Pipeline Overview
+1. Code Commit → Git Push
+2. Automated Tests → Unit, Integration, E2E
+3. Code Quality Checks → ESLint, TypeScript, Security
+4. Build Process → Production build and optimization
+5. Deployment → Staging environment deployment
+6. Smoke Tests → Basic functionality validation
+7. Production Deployment → Blue-green deployment
+8. Post-deployment Tests → Production health checks
+```
+
+#### Environment Management
+- **Development**: Local development environments
+- **Feature Branches**: Automated feature branch deployments
+- **Staging**: Pre-production testing environment
+- **Production**: Live production environment
+- **Rollback**: Automated rollback capability
+
+### Deployment Strategies
+
+#### Blue-Green Deployment
+- **Blue Environment**: Current production version
+- **Green Environment**: New version deployment target
+- **Traffic Switch**: Instant traffic routing to green environment
+- **Rollback**: Immediate switch back to blue if issues detected
+
+#### Monitoring and Alerting
+- **Application Performance**: Response time, error rate monitoring
+- **Infrastructure Health**: Server resources, database performance
+- **User Experience**: Real user monitoring, error tracking
+- **Business Metrics**: Feature usage, conversion rates
+
+This comprehensive workflow documentation ensures consistent, high-quality development practices across all team members and project phases.
     C --> D[Run Lint & Format]
     D --> E[Test Locally]
     E --> F[Create PR]
