@@ -1,4 +1,3 @@
-import React from "react";
 import { Video, Users, Calendar, Play, Sparkles, Zap, Globe, Shield, Mic } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
