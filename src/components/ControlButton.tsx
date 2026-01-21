@@ -31,23 +31,23 @@ const ControlButton = ({
   const [isHovered, setIsHovered] = useState(false)
 
   const getVariantClasses = () => {
-    const baseClasses = 'transition-all duration-200 ease-in-out rounded-full'
+    const baseClasses = 'transition-all duration-200 ease-in-out rounded-xl shadow-lg hover:shadow-xl backdrop-blur-sm border'
     
     switch (variant) {
       case 'default':
-        return `${baseClasses} bg-gray-800 hover:bg-gray-700 active:bg-gray-600 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} bg-slate-200/80 hover:bg-slate-300/80 active:bg-slate-400/80 text-slate-700 border-slate-300/50 dark:bg-slate-700/80 dark:hover:bg-slate-600/80 dark:active:bg-slate-500/80 dark:text-slate-200 dark:border-slate-600/50`
       case 'muted':
-        return `${baseClasses} bg-red-600 hover:bg-red-500 active:bg-red-700 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} bg-red-100/80 hover:bg-red-200/80 active:bg-red-300/80 text-red-700 border-red-200/50 dark:bg-red-900/40 dark:hover:bg-red-800/60 dark:active:bg-red-700/80 dark:text-red-300 dark:border-red-700/50`
       case 'active':
-        return `${baseClasses} bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white shadow-lg hover:shadow-xl active:shadow-inner ring-2 ring-blue-400 ring-offset-2`
+        return `${baseClasses} bg-blue-100/80 hover:bg-blue-200/80 active:bg-blue-300/80 text-blue-700 border-blue-200/50 ring-2 ring-blue-400/50 dark:bg-blue-900/40 dark:hover:bg-blue-800/60 dark:active:bg-blue-700/80 dark:text-blue-300 dark:border-blue-600/50`
       case 'danger':
-        return `${baseClasses} bg-red-600 hover:bg-red-500 active:bg-red-700 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} bg-red-100/80 hover:bg-red-200/80 active:bg-red-300/80 text-red-700 border-red-200/50 dark:bg-red-900/40 dark:hover:bg-red-800/60 dark:active:bg-red-700/80 dark:text-red-300 dark:border-red-700/50`
       case 'success':
-        return `${baseClasses} bg-green-600 hover:bg-green-500 active:bg-green-700 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} bg-green-100/80 hover:bg-green-200/80 active:bg-green-300/80 text-green-700 border-green-200/50 dark:bg-green-900/40 dark:hover:bg-green-800/60 dark:active:bg-green-700/80 dark:text-green-300 dark:border-green-700/50`
       case 'warning':
-        return `${baseClasses} bg-yellow-600 hover:bg-yellow-500 active:bg-yellow-700 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} bg-amber-100/80 hover:bg-amber-200/80 active:bg-amber-300/80 text-amber-700 border-amber-200/50 dark:bg-amber-900/40 dark:hover:bg-amber-800/60 dark:active:bg-amber-700/80 dark:text-amber-300 dark:border-amber-700/50`
       default:
-        return `${baseClasses} bg-gray-800 hover:bg-gray-700 active:bg-gray-600 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} bg-slate-200/80 hover:bg-slate-300/80 active:bg-slate-400/80 text-slate-700 border-slate-300/50 dark:bg-slate-700/80 dark:hover:bg-slate-600/80 dark:active:bg-slate-500/80 dark:text-slate-200 dark:border-slate-600/50`
     }
   }
 

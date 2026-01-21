@@ -5,7 +5,7 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 
 // Lazy load all pages for faster initial load
-const Home = lazy(() => import('./pages/Home-improved'))
+const Home = lazy(() => import('./pages/Home'))
 const VideoCall = lazy(() => import('./pages/VideoCall'))
 const JoinMeeting = lazy(() => import('./pages/JoinMeeting'))
 const Webinar = lazy(() => import('./pages/Webinar'))

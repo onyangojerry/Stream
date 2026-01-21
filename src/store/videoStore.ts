@@ -29,7 +29,7 @@ export interface VideoStoreState {
 
 export const useVideoStore = create<VideoStoreState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       participants: [],
       isVideoEnabled: true,
       isAudioEnabled: true,
