@@ -1,9 +1,10 @@
 # API Documentation
 
-This document provides comprehensive API documentation for the Stream video communication platform, including WebRTC implementation, state management APIs, and integration patterns.
+This document provides comprehensive API documentation for the Stream video communication platform, including Supabase authentication, WebRTC implementation, state management APIs, and integration patterns.
 
 ## 📋 Table of Contents
 
+- [Authentication API](#authentication-api)
 - [WebRTC API](#webrtc-api)
 - [State Management API](#state-management-api)
 - [Component API](#component-api)
@@ -11,6 +12,160 @@ This document provides comprehensive API documentation for the Stream video comm
 - [Utility Functions](#utility-functions)
 - [Event System](#event-system)
 - [Configuration API](#configuration-api)
+
+## 🔐 Authentication API
+
+### Supabase Client
+
+Central authentication client for all auth operations.
+
+**Location:** `src/lib/supabase.ts`
+
+```typescript
+import { supabase } from '@/lib/supabase'
+```
+
+### Auth Store API
+
+**Location:** `src/store/useAuthStore.ts`
+
+#### State
+
+```typescript
+interface AuthState {
+  user: User | null
+  profile: Profile | null
+  session: Session | null
+  loading: boolean
+  initialized: boolean
+}
+
+interface Profile {
+  id: string
+  name: string
+  email: string
+  avatar_url?: string
+  created_at: string
+  updated_at: string
+}
+```
+
+#### Actions
+
+##### `signup(email: string, password: string, name?: string): Promise<void>`
+
+Create a new user account.
+
+```typescript
+const { signup } = useAuthStore()
+
+try {
+  await signup('user@example.com', 'securePassword123', 'John Doe')
+  // User created and logged in
+} catch (error) {
+  console.error('Signup failed:', error)
+}
+```
+
+##### `login(email: string, password: string): Promise<void>`
+
+Authenticate an existing user.
+
+```typescript
+const { login } = useAuthStore()
+
+try {
+  await login('user@example.com', 'securePassword123')
+  // User authenticated
+} catch (error) {
+  console.error('Login failed:', error)
+}
+```
+
+##### `logout(): Promise<void>`
+
+Sign out the current user.
+
+```typescript
+const { logout } = useAuthStore()
+
+try {
+  await logout()
+  // User signed out
+} catch (error) {
+  console.error('Logout failed:', error)
+}
+```
+
+##### `resetPassword(email: string): Promise<void>`
+
+Send password reset email.
+
+```typescript
+const { resetPassword } = useAuthStore()
+
+try {
+  await resetPassword('user@example.com')
+  // Reset email sent
+} catch (error) {
+  console.error('Reset failed:', error)
+}
+```
+
+##### `updateProfile(updates: Partial<Profile>): Promise<void>`
+
+Update user profile information.
+
+```typescript
+const { updateProfile } = useAuthStore()
+
+try {
+  await updateProfile({
+    name: 'Jane Doe',
+    avatar_url: 'https://example.com/avatar.jpg'
+  })
+  // Profile updated
+} catch (error) {
+  console.error('Update failed:', error)
+}
+```
+
+##### `initialize(): Promise<void>`
+
+Initialize auth state on app load.
+
+```typescript
+const { initialize } = useAuthStore()
+
+useEffect(() => {
+  initialize()
+}, [])
+```
+
+#### Usage Example
+
+```typescript
+import { useAuthStore } from '@/store/useAuthStore'
+
+function LoginForm() {
+  const { login, loading, user } = useAuthStore()
+  
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      await login(email, password)
+      toast.success('Logged in successfully!')
+    } catch (error) {
+      toast.error('Invalid credentials')
+    }
+  }
+  
+  if (user) {
+    return <div>Welcome, {user.email}</div>
+  }
+  
+  return <form onSubmit={handleLogin}>...</form>
+}
+```
 
 ## 🎥 WebRTC API
 

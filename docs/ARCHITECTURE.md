@@ -116,11 +116,35 @@ Stream uses **Zustand** for state management with a domain-driven approach:
 ```typescript
 // Domain-specific stores
 useVideoStore      // Video call state and controls
-useAuthStore       // Authentication and user data
+useAuthStore       // Supabase authentication and user data
 useUIStore         // UI state and preferences
 useSchedulerStore  // Meeting scheduling
 useDocumentStore   // Collaborative documents
 ```
+
+### Authentication Architecture (Supabase)
+
+```mermaid
+graph TB
+    A[User Action] --> B[Auth Store]
+    B --> C[Supabase Client]
+    C --> D{Auth Method}
+    D -->|Email/Password| E[Email Auth]
+    D -->|Social| F[OAuth Provider]
+    E --> G[Supabase Auth]
+    F --> G
+    G --> H[Session Created]
+    H --> I[Profile Created/Updated]
+    I --> J[Auth State Updated]
+    J --> K[App Re-renders]
+```
+
+**Key Components:**
+- **Supabase Client** (`src/lib/supabase.ts`): Configured client instance
+- **Auth Store** (`src/store/useAuthStore.ts`): Manages auth state
+- **Profiles Table**: Stores user profile data
+- **RLS Policies**: Row-level security for data access
+- **Triggers**: Auto-create profiles on signup
 
 ### Data Flow Diagram
 
