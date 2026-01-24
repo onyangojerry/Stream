@@ -23,17 +23,18 @@ Open http://localhost:3000
 - lint: run ESLint
 
 ## Documentation
-- Architecture: docs/ARCHITECTURE.md
-- API & Data: docs/API.md
-- Usage Guide: docs/USAGE.md
-- Features & Workflows: docs/WORKFLOWS.md
-- Waiting Room: docs/WAITING_ROOM_GUIDE.md
-- Deployment: docs/DEPLOYMENT.md
-- Configuration: docs/CONFIGURATION.md
-- Security & Privacy: docs/PRIVACY_SECURITY.md
-- Contributing: docs/CONTRIBUTING.md
-- Changelog: docs/CHANGELOG.md
-- Roadmap: docs/ROADMAP.md
+- **Supabase Setup**: [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)
+- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- API & Data: [docs/API.md](docs/API.md)
+- Usage Guide: [docs/USAGE.md](docs/USAGE.md)
+- Features & Workflows: [docs/WORKFLOWS.md](docs/WORKFLOWS.md)
+- Waiting Room: [docs/WAITING_ROOM_GUIDE.md](docs/WAITING_ROOM_GUIDE.md)
+- Deployment: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- Configuration: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+- Security & Privacy: [docs/PRIVACY_SECURITY.md](docs/PRIVACY_SECURITY.md)
+- Contributing: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- Changelog: [docs/CHANGELOG.md](docs/CHANGELOG.md)
+- Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## License
 See repository license information.

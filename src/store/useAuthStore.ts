@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { supabase } from '../lib/supabase'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 export interface User {
   id: string
@@ -18,35 +20,23 @@ export interface AuthState {
   error: string | null
   signup: (userData: { name: string; email: string; password: string }) => Promise<boolean>
   login: (credentials: { email: string; password: string }) => Promise<boolean>
-  logout: () => void
+  logout: () => Promise<void>
   clearError: () => void
-  updateProfile: (updates: Partial<User>) => void
+  updateProfile: (updates: Partial<User>) => Promise<void>
   createDemoUser: () => Promise<void>
+  initializeAuth: () => Promise<void>
+  resetPassword: (email: string) => Promise<boolean>
 }
 
-// Simulated user database (in a real app, this would be an API)
-let users: { [key: string]: User & { password: string } } = {}
-
-// Load users from localStorage on initialization
-try {
-  const savedUsers = localStorage.getItem('striim-users')
-  if (savedUsers) {
-    users = JSON.parse(savedUsers)
-  }
-} catch (error) {
-  console.error('Error loading users:', error)
-  users = {}
-}
-
-const generateUserId = (): string => {
-  return `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-}
-
-const saveUsersToStorage = () => {
-  try {
-    localStorage.setItem('striim-users', JSON.stringify(users))
-  } catch (error) {
-    console.error('Error saving users:', error)
+const mapSupabaseUserToUser = (supabaseUser: SupabaseUser, profile?: any): User => {
+  return {
+    id: supabaseUser.id,
+    name: profile?.name || supabaseUser.email?.split('@')[0] || 'User',
+    email: supabaseUser.email || '',
+    avatar: profile?.avatar_url || supabaseUser.user_metadata?.avatar_url,
+    isOnline: true,
+    createdAt: new Date(supabaseUser.created_at),
+    lastLoginAt: new Date(),
   }
 }
 
@@ -58,26 +48,46 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
 
+      initializeAuth: async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          
+          if (session?.user) {
+            // Fetch user profile from database
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+
+            const user = mapSupabaseUserToUser(session.user, profile)
+            set({ user, isAuthenticated: true })
+          }
+
+          // Listen for auth changes
+          supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single()
+
+              const user = mapSupabaseUserToUser(session.user, profile)
+              set({ user, isAuthenticated: true })
+            } else if (event === 'SIGNED_OUT') {
+              set({ user: null, isAuthenticated: false })
+            }
+          })
+        } catch (error) {
+          console.error('Error initializing auth:', error)
+        }
+      },
+
       signup: async (userData) => {
         set({ isLoading: true, error: null })
 
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 1000))
-
-          // Check if user already exists
-          const existingUser = Object.values(users).find(
-            user => user.email.toLowerCase() === userData.email.toLowerCase()
-          )
-
-          if (existingUser) {
-            set({ 
-              isLoading: false, 
-              error: 'User with this email already exists' 
-            })
-            return false
-          }
-
           // Validate input
           if (!userData.name.trim() || !userData.email.trim() || !userData.password) {
             set({ 
@@ -103,35 +113,53 @@ export const useAuthStore = create<AuthState>()(
             return false
           }
 
-          // Create new user
-          const newUser: User = {
-            id: generateUserId(),
-            name: userData.name.trim(),
+          // Sign up with Supabase
+          const { data, error } = await supabase.auth.signUp({
             email: userData.email.toLowerCase().trim(),
-            isOnline: true,
-            createdAt: new Date(),
-            lastLoginAt: new Date(),
-          }
-
-          // Store user in "database"
-          users[newUser.id] = {
-            ...newUser,
-            password: userData.password // In real app, this would be hashed
-          }
-          saveUsersToStorage()
-
-          set({
-            user: newUser,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null
+            password: userData.password,
+            options: {
+              data: {
+                name: userData.name.trim(),
+              },
+            },
           })
 
+          if (error) {
+            set({ isLoading: false, error: error.message })
+            return false
+          }
+
+          if (data.user) {
+            // Create profile in database
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .insert({
+                id: data.user.id,
+                name: userData.name.trim(),
+                email: userData.email.toLowerCase().trim(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+
+            if (profileError) {
+              console.error('Error creating profile:', profileError)
+            }
+
+            const user = mapSupabaseUserToUser(data.user, { name: userData.name.trim() })
+            set({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null
+            })
+          }
+
+          set({ isLoading: false })
           return true
-        } catch (error) {
+        } catch (error: any) {
           set({ 
             isLoading: false, 
-            error: 'Failed to create account. Please try again.' 
+            error: error.message || 'Failed to create account. Please try again.' 
           })
           return false
         }
@@ -141,95 +169,106 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null })
 
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 1000))
-
-          // Find user by email
-          const user = Object.values(users).find(
-            user => user.email.toLowerCase() === credentials.email.toLowerCase()
-          )
-
-          if (!user) {
-            set({ 
-              isLoading: false, 
-              error: 'Invalid email or password' 
-            })
-            return false
-          }
-
-          // Check password
-          if (user.password !== credentials.password) {
-            set({ 
-              isLoading: false, 
-              error: 'Invalid email or password' 
-            })
-            return false
-          }
-
-          // Update last login
-          const updatedUser: User = {
-            ...user,
-            isOnline: true,
-            lastLoginAt: new Date()
-          }
-
-          users[user.id] = {
-            ...users[user.id],
-            isOnline: true,
-            lastLoginAt: new Date()
-          }
-          saveUsersToStorage()
-
-          set({
-            user: updatedUser,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: credentials.email.toLowerCase().trim(),
+            password: credentials.password,
           })
 
+          if (error) {
+            set({ isLoading: false, error: error.message })
+            return false
+          }
+
+          if (data.user) {
+            // Fetch user profile
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', data.user.id)
+              .single()
+
+            const user = mapSupabaseUserToUser(data.user, profile)
+            set({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null
+            })
+          }
+
           return true
-        } catch (error) {
+        } catch (error: any) {
           set({ 
             isLoading: false, 
-            error: 'Failed to login. Please try again.' 
+            error: error.message || 'Failed to login. Please try again.' 
           })
           return false
         }
       },
 
-      logout: () => {
-        const { user } = get()
-        if (user) {
-          // Update user status in "database"
-                  if (users[user.id]) {
-          users[user.id].isOnline = false
-          saveUsersToStorage()
+      logout: async () => {
+        try {
+          await supabase.auth.signOut()
+          set({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null
+          })
+        } catch (error) {
+          console.error('Error signing out:', error)
         }
-        }
+      },
 
-        set({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null
-        })
+      resetPassword: async (email: string) => {
+        set({ isLoading: true, error: null })
+
+        try {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
+          })
+
+          if (error) {
+            set({ isLoading: false, error: error.message })
+            return false
+          }
+
+          set({ isLoading: false })
+          return true
+        } catch (error: any) {
+          set({ 
+            isLoading: false, 
+            error: error.message || 'Failed to send reset email' 
+          })
+          return false
+        }
       },
 
       clearError: () => {
         set({ error: null })
       },
 
-      updateProfile: (updates) => {
+      updateProfile: async (updates) => {
         const { user } = get()
-        if (user) {
+        if (!user) return
+
+        try {
+          // Update profile in database
+          const { error } = await supabase
+            .from('profiles')
+            .update({
+              name: updates.name,
+              avatar_url: updates.avatar,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id)
+
+          if (error) throw error
+
           const updatedUser = { ...user, ...updates }
           set({ user: updatedUser })
-
-          // Update in "database"
-          if (users[user.id]) {
-            users[user.id] = { ...users[user.id], ...updates }
-            saveUsersToStorage()
-          }
+        } catch (error) {
+          console.error('Error updating profile:', error)
         }
       },
 
@@ -237,8 +276,8 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         
         try {
-          // Create a demo user
-          const userId = generateUserId()
+          // Create a demo user without Supabase (temporary session)
+          const userId = `demo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
           const demoUser: User = {
             id: userId,
             name: `Demo User ${Math.floor(Math.random() * 1000)}`,
@@ -248,7 +287,6 @@ export const useAuthStore = create<AuthState>()(
             lastLoginAt: new Date()
           }
           
-          // Store demo user temporarily (don't save to localStorage for persistence)
           set({ 
             user: demoUser, 
             isAuthenticated: true, 

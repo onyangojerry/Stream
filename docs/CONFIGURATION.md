@@ -4,6 +4,10 @@
 Create a `.env` in the project root:
 
 ```env
+# Supabase (Required for authentication)
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
 # App
 VITE_APP_NAME=Stream
 VITE_APP_VERSION=2.0.0
@@ -20,6 +24,8 @@ VITE_ENABLE_TRANSCRIPTION=true
 VITE_ENABLE_SIGN_LANGUAGE=true
 VITE_ENABLE_COLLABORATIVE_DOCS=true
 ```
+
+**Important**: See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for detailed instructions on setting up Supabase authentication.
 
 ## Customization
 

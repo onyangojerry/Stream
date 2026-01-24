@@ -1,8 +1,9 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
+import { useAuthStore } from './store/useAuthStore'
 
 // Lazy load all pages for faster initial load
 const Home = lazy(() => import('./pages/Home-improved'))
@@ -28,6 +29,13 @@ const PageLoader = () => (
 )
 
 function App() {
+  const initializeAuth = useAuthStore(state => state.initializeAuth)
+
+  useEffect(() => {
+    // Initialize Supabase auth session on app load
+    initializeAuth()
+  }, [initializeAuth])
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
