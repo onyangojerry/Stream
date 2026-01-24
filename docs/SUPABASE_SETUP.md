@@ -34,12 +34,15 @@
    ```
 
 ### 4. Create Database Schema
-1. In your Supabase project dashboard, go to **SQL Editor**
-2. Run the following SQL to create the profiles table:
+
+**IMPORTANT**: Run each section separately and check for success messages after each one.
+
+#### Step 1: Create the profiles table
+In your Supabase project dashboard, go to **SQL Editor** → **New Query**, paste and run:
 
 ```sql
 -- Create profiles table
-create table profiles (
+create table public.profiles (
   id uuid references auth.users on delete cascade primary key,
   name text not null,
   email text not null,
@@ -47,26 +50,46 @@ create table profiles (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+```
 
--- Enable Row Level Security (RLS)
-alter table profiles enable row level security;
+**Verify**: Go to **Table Editor** in sidebar → you should see `profiles` table listed.
 
--- Create policies
+#### Step 2: Enable Row Level Security
+```sql
+-- Enable RLS
+alter table public.profiles enable row level security;
+```
+
+#### Step 3: Create RLS Policies
+Run each policy separately:
+
+```sql
+-- Policy 1: Public profiles viewable
 create policy "Public profiles are viewable by everyone."
-  on profiles for select
+  on public.profiles for select
   using ( true );
 
+-- Policy 2: Users can insert their own profile
 create policy "Users can insert their own profile."
-  on profiles for insert
+  on public.profiles for insert
   with check ( auth.uid() = id );
 
+-- Policy 3: Users can update own profile
 create policy "Users can update own profile."
-  on profiles for update
+  on public.profiles for update
   using ( auth.uid() = id );
+```
 
--- Create function to automatically create profile on signup
+**Verify**: Go to **Authentication** → **Policies** → select `profiles` table → you should see 3 policies.
+
+#### Step 4: Create Trigger Function
+```sql
+-- Function to create profile on signup
 create or replace function public.handle_new_user()
-returns trigger as $$
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
 begin
   insert into public.profiles (id, name, email)
   values (
@@ -76,13 +99,23 @@ begin
   );
   return new;
 end;
-$$ language plpgsql security definer;
+$$;
+```
 
--- Trigger to create profile on user signup
+#### Step 5: Create Trigger
+```sql
+-- Trigger on user signup
 create trigger on_auth_user_created
   after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+  for each row
+  execute function public.handle_new_user();
 ```
+
+**Troubleshooting**:
+- If table doesn't appear: refresh the browser or check **Table Editor** sidebar
+- If you see errors: check the error message in red at the bottom of SQL Editor
+- To verify table exists, run: `select * from public.profiles;`
+- To drop and recreate if needed: `drop table if exists public.profiles cascade;` then rerun Step 1
 
 ### 5. Configure Authentication Settings (Optional)
 1. In your Supabase dashboard, go to **Authentication** → **Providers**
