@@ -8,26 +8,23 @@ const ChatPanel = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { messages, addMessage, currentUser } = useVideoStore()
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   const handleSendMessage = () => {
-    if (message.trim() && currentUser) {
-      const newMessage: Message = {
-        id: `msg-${Date.now()}`,
-        sender: currentUser,
-        content: message.trim(),
-        timestamp: new Date(),
-        type: 'text'
-      }
-      addMessage(newMessage)
-      setMessage('')
+    if (!message.trim() || !currentUser) return
+
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      sender: currentUser,
+      content: message.trim(),
+      timestamp: new Date(),
+      type: 'text',
     }
+
+    addMessage(newMessage)
+    setMessage('')
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -37,85 +34,73 @@ const ChatPanel = () => {
     }
   }
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
+  const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Chat</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{messages.length} messages</p>
+    <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+        <h3 className="text-sm font-semibold tracking-tight text-gray-900 dark:text-white">Chat</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{messages.length} messages</p>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Send className="w-6 h-6" />
+          <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center dark:border-gray-700">
+            <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+              <Send className="h-4 w-4" />
             </div>
-            <p className="text-sm">No messages yet</p>
-            <p className="text-xs">Start the conversation!</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">No messages yet</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Start the conversation</p>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.sender.id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs px-3 py-2 rounded-lg ${
-                  msg.sender.id === currentUser?.id
-                    ? 'bg-blue-600 dark:bg-blue-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
-                }`}
-              >
-                {msg.sender.id !== currentUser?.id && (
-                  <p className="text-xs font-medium mb-1 opacity-75">
-                    {msg.sender.name}
+          messages.map((msg) => {
+            const isMine = msg.sender.id === currentUser?.id
+            return (
+              <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[85%] rounded-2xl border px-3 py-2 ${
+                    isMine
+                      ? 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900'
+                      : 'border-gray-200 bg-gray-50 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white'
+                  }`}
+                >
+                  {!isMine && <p className="mb-1 text-xs font-medium opacity-70">{msg.sender.name}</p>}
+                  <p className="text-sm leading-relaxed">{msg.content}</p>
+                  <p className={`mt-1 text-xs ${isMine ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {formatTime(msg.timestamp)}
                   </p>
-                )}
-                <p className="text-sm">{msg.content}</p>
-                <p className={`text-xs mt-1 ${
-                  msg.sender.id === currentUser?.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                }`}>
-                  {formatTime(msg.timestamp)}
-                </p>
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex items-center space-x-2">
-          <button className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-            <Paperclip className="w-4 h-4" />
+      <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
+        <div className="flex items-end gap-2">
+          <button className="rounded-xl border border-gray-200 bg-white p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800">
+            <Paperclip className="h-4 w-4" />
           </button>
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="Type a message..."
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="max-h-28 min-h-10 w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none ring-0 placeholder:text-gray-400 focus:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-gray-600"
               rows={1}
-              style={{ minHeight: '40px', maxHeight: '120px' }}
             />
           </div>
-          <button className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-            <Smile className="w-4 h-4" />
+          <button className="rounded-xl border border-gray-200 bg-white p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800">
+            <Smile className="h-4 w-4" />
           </button>
           <button
             onClick={handleSendMessage}
             disabled={!message.trim()}
-            className="p-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="rounded-xl border border-gray-900 bg-gray-900 p-2 text-white transition disabled:cursor-not-allowed disabled:opacity-40 dark:border-white dark:bg-white dark:text-gray-900"
           >
-            <Send className="w-4 h-4" />
+            <Send className="h-4 w-4" />
           </button>
         </div>
       </div>

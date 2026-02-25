@@ -10,6 +10,7 @@ import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import WaitingRoomChat from '../components/WaitingRoomChat'
 import CollaborativeDocument from '../components/CollaborativeDocument'
+import MeetingJoinRequestsPanel from '../components/MeetingJoinRequestsPanel'
 import ControlButton from '../components/ControlButton'
 import CallDashboard from '../components/CallDashboard'
 import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
@@ -30,6 +31,7 @@ const VideoCall = () => {
   
   const {
     setCurrentRoom,
+    setCurrentUser,
     localStream,
     setLocalStream,
     isAudioEnabled,
@@ -53,9 +55,10 @@ const VideoCall = () => {
     leaveMeeting,
     reset
   } = useVideoStore()
+  const hasSidePanel = showWaitingRoom || showChat || showTranscription || (!!roomId && isHost)
 
   const { user: currentUser } = useAuthStore()
-  const { getMeetingById, startMeeting: startScheduledMeeting, endMeeting: endScheduledMeeting } = useSchedulerStore()
+  const { getMeetingByRoomId, startMeeting: startScheduledMeeting, endMeeting: endScheduledMeeting } = useSchedulerStore()
 
   useEffect(() => {
     if (roomId) {
@@ -92,6 +95,8 @@ const VideoCall = () => {
 
   const initializeCall = async () => {
     try {
+      let effectiveUser = currentUser
+
       if (!currentUser) {
         // Prompt user to login or continue as guest
         const shouldLogin = window.confirm(
@@ -117,22 +122,29 @@ const VideoCall = () => {
             isOnline: true,
             createdAt: new Date(),
             lastLoginAt: new Date()
-          };
-          // Set the guest user temporarily (you might want to update the auth store to handle this)
-          console.log('Continuing as guest:', guestUser);
+          }
+          effectiveUser = guestUser
+          setCurrentUser(guestUser)
+          console.log('Continuing as guest:', guestUser)
         }
+      } else {
+        setCurrentUser(currentUser)
       }
 
       // Check if user is joining via link (not the host)
       const urlParams = new URLSearchParams(window.location.search)
       const isJoining = urlParams.get('join') === 'true'
       
-      console.log('VideoCall - isJoining:', isJoining, 'isHost:', isHost, 'currentUser:', currentUser)
+      console.log('VideoCall - isJoining:', isJoining, 'isHost:', isHost, 'currentUser:', effectiveUser)
       
       if (isJoining) {
+        if (!effectiveUser) {
+          toast.error('Unable to join waiting room without a user identity')
+          return
+        }
         // User is joining via link - add to waiting room
-        console.log('Adding user to waiting room:', currentUser)
-        addToWaitingRoom(currentUser)
+        console.log('Adding user to waiting room:', effectiveUser)
+        addToWaitingRoom(effectiveUser)
         toast.success('Waiting for host approval to join the call')
         return
       }
@@ -142,8 +154,8 @@ const VideoCall = () => {
       startMeeting()
       
       // Check if this is a scheduled meeting
-      const scheduledMeeting = getMeetingById(roomId || '')
-      if (scheduledMeeting && scheduledMeeting.hostId === currentUser?.id) {
+      const scheduledMeeting = getMeetingByRoomId(roomId || '')
+      if (scheduledMeeting && scheduledMeeting.hostId === effectiveUser?.id) {
         startScheduledMeeting(scheduledMeeting.id)
       }
       
@@ -181,7 +193,7 @@ const VideoCall = () => {
   const handleEndCall = () => {
     if (isHost) {
       // Check if this is a scheduled meeting and end it
-      const scheduledMeeting = getMeetingById(roomId || '')
+      const scheduledMeeting = getMeetingByRoomId(roomId || '')
       if (scheduledMeeting && scheduledMeeting.hostId === currentUser?.id) {
         endScheduledMeeting(scheduledMeeting.id)
       }
@@ -294,15 +306,15 @@ const VideoCall = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-900 flex flex-col">
+    <div className="h-screen overflow-hidden bg-gray-950 text-white flex flex-col">
       <WaitingRoomNotification />
       <WaitingRoomChat />
       {/* Header */}
-      <div className="bg-gray-800 px-6 py-3 flex items-center justify-between">
+      <div className="border-b border-white/10 bg-gray-900/80 px-4 py-3 backdrop-blur sm:px-6 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h1 className="text-white font-semibold">Room: {roomId}</h1>
-          <div className="flex items-center space-x-2 text-green-400">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <h1 className="font-semibold text-white">Room: {roomId}</h1>
+          <div className="flex items-center space-x-2 text-gray-300">
+            <div className="h-2 w-2 rounded-full bg-emerald-400"></div>
             <span className="text-sm">Connected</span>
           </div>
         </div>
@@ -338,14 +350,14 @@ const VideoCall = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
+      <div className="relative flex min-h-0 flex-1">
         {/* Video Area */}
-        <div className="flex-1 relative">
+        <div className="relative flex-1 min-w-0 pb-24">
           <VideoGrid />
           
           {/* Floating Controls */}
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
-            <div className="flex items-center space-x-4 bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-full px-6 py-3">
+          <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 sm:bottom-6">
+          <div className="flex max-w-[calc(100vw-1rem)] items-center space-x-2 rounded-full border border-white/10 bg-gray-900/85 px-3 py-2 backdrop-blur sm:space-x-3 sm:px-4">
               <ControlButton
                 onClick={toggleAudio}
                 title={isAudioEnabled ? 'Mute Audio' : 'Unmute Audio'}
@@ -375,7 +387,7 @@ const VideoCall = () => {
                 title={isRecording ? 'Stop Recording' : 'Start Recording'}
                 variant={isRecording ? 'active' : 'default'}
               >
-                <div className={`w-full h-full rounded-full border-2 ${isRecording ? 'bg-red-500 border-red-500' : 'border-white'}`}></div>
+                <div className={`h-full w-full rounded-full border-2 ${isRecording ? 'border-red-500 bg-red-500' : 'border-current'}`}></div>
               </ControlButton>
               
               <ControlButton
@@ -414,26 +426,40 @@ const VideoCall = () => {
         </div>
 
         {/* Side Panels */}
-        <div className="flex flex-col space-y-2 p-4">
+        <div
+          className={`pointer-events-none absolute right-2 top-2 bottom-20 z-10 w-[min(22rem,calc(100%-1rem))] transition-opacity sm:right-4 sm:top-4 sm:w-80 ${
+            hasSidePanel ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <div className="pointer-events-auto h-full overflow-y-auto rounded-2xl border border-white/10 bg-gray-950/55 p-2 backdrop-blur">
+          <div className="flex flex-col space-y-2">
           {showWaitingRoom && (
-            <div className="w-80 bg-white rounded-lg shadow-lg">
+            <div>
               <WaitingRoom />
+            </div>
+          )}
+
+          {isHost && roomId && (
+            <div>
+              <MeetingJoinRequestsPanel roomId={roomId} title="Guest join requests" />
             </div>
           )}
           
           {showChat && (
-            <div className="w-80 bg-white rounded-lg shadow-lg">
+            <div>
               <ChatPanel />
             </div>
           )}
           
           {showTranscription && (
-            <div className="w-80 bg-white rounded-lg shadow-lg">
+            <div>
               <TranscriptionPanel />
             </div>
           )}
           
           {/* Whiteboard is rendered as a modal overlay */}
+          </div>
+          </div>
         </div>
       </div>
 
@@ -444,13 +470,13 @@ const VideoCall = () => {
 
       {/* Share Meeting Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 text-gray-900 shadow-xl dark:border-gray-800 dark:bg-gray-900 dark:text-white">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Share Meeting</h3>
               <button
                 onClick={() => setShowShareModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -468,11 +494,11 @@ const VideoCall = () => {
                     type="text"
                     value={getMeetingLink()}
                     readOnly
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none"
+                    className="flex-1 rounded-l-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                   />
                   <button
                     onClick={handleCopyLink}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-r-lg transition-colors"
+                    className="rounded-r-xl border border-gray-900 bg-gray-900 px-4 py-2 text-white transition-colors dark:border-white dark:bg-white dark:text-gray-900"
                   >
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </button>
@@ -482,13 +508,13 @@ const VideoCall = () => {
               <div className="flex space-x-3">
                 <button
                   onClick={handleShareNative}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors"
+                  className="flex-1 rounded-xl border border-gray-900 bg-gray-900 px-4 py-2 text-white transition-colors dark:border-white dark:bg-white dark:text-gray-900"
                 >
                   Share
                 </button>
                 <button
                   onClick={() => setShowShareModal(false)}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg transition-colors"
+                  className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
                   Cancel
                 </button>

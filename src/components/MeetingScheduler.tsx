@@ -143,17 +143,30 @@ const MeetingScheduler = () => {
     }
   }
 
+  const getMeetingRoute = (meeting: { type: string; roomId: string }) => {
+    switch (meeting.type) {
+      case 'one-on-one':
+        return `/call/${meeting.roomId}`
+      case 'group':
+        return `/group/${meeting.roomId}`
+      case 'webinar':
+        return `/webinar/${meeting.roomId}`
+      default:
+        return `/call/${meeting.roomId}`
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Meeting Scheduler</h2>
-          <p className="text-gray-600 dark:text-gray-300">Schedule and manage your meetings</p>
+          <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Meeting Scheduler</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Schedule and manage your meetings</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="btn-primary flex items-center space-x-2"
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white dark:border-white dark:bg-white dark:text-gray-900"
         >
           <Plus className="w-4 h-4" />
           <span>Schedule Meeting</span>
@@ -161,8 +174,8 @@ const MeetingScheduler = () => {
       </div>
 
       {/* Upcoming Meetings */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Upcoming Meetings</h3>
+      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <h3 className="mb-4 text-base font-semibold tracking-tight text-gray-900 dark:text-white">Upcoming Meetings</h3>
         {upcomingMeetings.length === 0 ? (
           <div className="text-center text-gray-500 dark:text-gray-400 py-8">
             <Calendar className="w-12 h-12 mx-auto mb-3" />
@@ -174,10 +187,10 @@ const MeetingScheduler = () => {
             {upcomingMeetings.map((meeting) => (
               <div
                 key={meeting.id}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 p-4 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-750"
               >
                 <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-lg ${getTypeColor(meeting.type)}`}>
+                  <div className={`rounded-xl p-2 ${getTypeColor(meeting.type)}`}>
                     {getTypeIcon(meeting.type)}
                   </div>
                   <div>
@@ -200,8 +213,8 @@ const MeetingScheduler = () => {
                     {meeting.type}
                   </span>
                   <button
-                    onClick={() => navigate(`/${meeting.type}/${meeting.roomId}`)}
-                    className="btn-primary text-sm px-3 py-1"
+                    onClick={() => navigate(getMeetingRoute(meeting))}
+                    className="rounded-lg border border-gray-900 bg-gray-900 px-3 py-1.5 text-sm font-medium text-white dark:border-white dark:bg-white dark:text-gray-900"
                   >
                     Join
                   </button>
@@ -219,22 +232,22 @@ const MeetingScheduler = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
             onClick={() => setShowForm(false)}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="border-b border-gray-200 p-6 dark:border-gray-800">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Schedule Meeting</h3>
                   <button
                     onClick={() => setShowForm(false)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -424,17 +437,17 @@ const MeetingScheduler = () => {
                 </div>
 
                 {/* Form Actions */}
-                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-end space-x-3 border-t border-gray-200 pt-4 dark:border-gray-800">
                   <button
                     type="button"
                     onClick={() => setShowForm(false)}
-                    className="btn-secondary"
+                    className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="btn-primary"
+                    className="rounded-xl border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white dark:border-white dark:bg-white dark:text-gray-900"
                   >
                     Schedule Meeting
                   </button>

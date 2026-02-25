@@ -38,6 +38,7 @@ interface SchedulerState {
   updateMeeting: (id: string, updates: Partial<ScheduledMeeting>) => void
   deleteMeeting: (id: string) => void
   getMeetingById: (id: string) => ScheduledMeeting | undefined
+  getMeetingByRoomId: (roomId: string) => ScheduledMeeting | undefined
   getUpcomingMeetings: () => ScheduledMeeting[]
   getPastMeetings: () => ScheduledMeeting[]
   getActiveMeetings: () => ScheduledMeeting[]
@@ -94,6 +95,10 @@ export const useSchedulerStore = create<SchedulerState>()(
       
       getMeetingById: (id) => {
         return get().scheduledMeetings.find(meeting => meeting.id === id)
+      },
+
+      getMeetingByRoomId: (roomId) => {
+        return get().scheduledMeetings.find(meeting => meeting.roomId === roomId)
       },
       
       getUpcomingMeetings: () => {
@@ -181,6 +186,22 @@ export const useSchedulerStore = create<SchedulerState>()(
     }),
     {
       name: 'striim-scheduler',
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+
+        const reviveMeeting = (meeting: ScheduledMeeting): ScheduledMeeting => ({
+          ...meeting,
+          startTime: new Date(meeting.startTime),
+          endTime: new Date(meeting.endTime),
+          createdAt: new Date(meeting.createdAt),
+          updatedAt: new Date(meeting.updatedAt),
+          actualStartTime: meeting.actualStartTime ? new Date(meeting.actualStartTime) : undefined,
+          actualEndTime: meeting.actualEndTime ? new Date(meeting.actualEndTime) : undefined,
+        })
+
+        state.scheduledMeetings = state.scheduledMeetings.map(reviveMeeting)
+        state.activeMeetings = state.activeMeetings.map(reviveMeeting)
+      },
     }
   )
 )

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import { 
-  Save, Download, Upload, Trash2, FileText, Type, Bold, Italic, 
+  Save, Download, Upload, Trash2, FileText, Bold, Italic, 
   Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, 
   AlignJustify, List, ListOrdered, Heading1, Heading2, Heading3,
-  Minus, X, Maximize2, Minimize2
+  Minus, X, Maximize2, Minimize2, MoreHorizontal, MoreVertical
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
@@ -53,9 +53,14 @@ const CollaborativeDocument = () => {
   const [textColor, setTextColor] = useState('#000000')
   const [backgroundColor, setBackgroundColor] = useState('#ffffff')
   const [isDragging, setIsDragging] = useState(false)
+  const [showAdvancedToolbar, setShowAdvancedToolbar] = useState(false)
+  const [showDocActionsMenu, setShowDocActionsMenu] = useState(false)
+  const [showWindowMenu, setShowWindowMenu] = useState(false)
+  const [windowSizePreset, setWindowSizePreset] = useState<'compact' | 'default' | 'wide'>('default')
 
   const editorRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   // Font options
   const fonts = [
@@ -248,6 +253,28 @@ const CollaborativeDocument = () => {
     setState(prev => ({ ...prev, isMaximized: !prev.isMaximized }))
   }
 
+  const applyWindowSizePreset = (preset: 'compact' | 'default' | 'wide') => {
+    const sizes = {
+      compact: { width: 640, height: 420 },
+      default: { width: 800, height: 600 },
+      wide: { width: 1040, height: 720 }
+    }
+    setWindowSizePreset(preset)
+    setState(prev => ({
+      ...prev,
+      isMaximized: false,
+      size: sizes[preset]
+    }))
+    setShowWindowMenu(false)
+  }
+
+  const cycleWindowSize = () => {
+    const order: Array<'compact' | 'default' | 'wide'> = ['compact', 'default', 'wide']
+    const currentIndex = order.indexOf(windowSizePreset)
+    const next = order[(currentIndex + 1) % order.length]
+    applyWindowSizePreset(next)
+  }
+
   if (state.isMinimized) {
     return (
       <motion.div
@@ -258,10 +285,10 @@ const CollaborativeDocument = () => {
       >
         <button
           onClick={toggleMinimize}
-          className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg shadow-lg flex items-center space-x-2"
+          className="flex items-center space-x-2 rounded-xl border border-gray-200 bg-white p-3 text-gray-900 shadow-lg hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
         >
           <FileText className="w-5 h-5" />
-          <span>Document Editor</span>
+          <span>Canvas</span>
         </button>
       </motion.div>
     )
@@ -277,7 +304,7 @@ const CollaborativeDocument = () => {
         width: state.isMaximized ? '100vw' : state.size.width,
         height: state.isMaximized ? '100vh' : state.size.height
       }}
-      className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+      className="fixed z-50 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
       style={{
         left: state.isMaximized ? 0 : state.position.x,
         top: state.isMaximized ? 0 : state.position.y
@@ -287,240 +314,180 @@ const CollaborativeDocument = () => {
     >
       {/* Header */}
       <div 
-        className="bg-gray-100 dark:bg-gray-700 px-4 py-2 flex items-center justify-between cursor-move"
+        className="flex cursor-move items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900"
         onMouseDown={() => setIsDragging(true)}
         onMouseUp={() => setIsDragging(false)}
       >
         <div className="flex items-center space-x-3">
-          <FileText className="w-5 h-5 text-blue-600" />
-          <span className="font-semibold text-gray-900 dark:text-white">
-            Collaborative Document
-          </span>
+          <FileText className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+          <div>
+            <span className="block text-sm font-semibold text-gray-900 dark:text-white">
+              Canvas
+            </span>
+            <span className="block text-xs text-gray-500 dark:text-gray-400">
+              {state.currentDocument?.title || 'Untitled document'}
+            </span>
+          </div>
         </div>
         
         <div className="flex items-center space-x-2">
-          <button
-            onClick={toggleMinimize}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-          >
-            <Minus className="w-4 h-4" />
+          <button onClick={cycleWindowSize} className="menu-trigger text-xs" title="Toggle window size">
+            {windowSizePreset === 'compact' ? 'S' : windowSizePreset === 'default' ? 'M' : 'L'}
           </button>
-          <button
-            onClick={toggleMaximize}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-          >
-            {state.isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => setState(prev => ({ ...prev, isEditing: false }))}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="relative">
+            <button onClick={() => setShowWindowMenu(prev => !prev)} className="icon-btn h-8 w-8" title="Window actions">
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            <AnimatePresence>
+              {showWindowMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="absolute right-0 top-9 z-20 w-36 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+                >
+                  <button onClick={() => applyWindowSizePreset('compact')} className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Small</button>
+                  <button onClick={() => applyWindowSizePreset('default')} className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Medium</button>
+                  <button onClick={() => applyWindowSizePreset('wide')} className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Large</button>
+                  <button
+                    onClick={() => {
+                      toggleMaximize()
+                      setShowWindowMenu(false)
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    {state.isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    {state.isMaximized ? 'Restore' : 'Fullscreen'}
+                  </button>
+                  <button onClick={() => { toggleMinimize(); setShowWindowMenu(false) }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <Minus className="w-4 h-4" />
+                    Minimize
+                  </button>
+                  <button onClick={() => { setState(prev => ({ ...prev, isEditing: false })); setShowWindowMenu(false) }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30">
+                    <X className="w-4 h-4" />
+                    Close
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
       {/* Toolbar */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2">
-        <div className="flex items-center space-x-2 flex-wrap">
-          {/* Document Actions */}
-          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
-            <button
-              onClick={() => setShowDocumentList(!showDocumentList)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Documents"
-            >
+      <div className="border-b border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <button onClick={() => setShowDocActionsMenu(prev => !prev)} className="menu-trigger" title="Document actions">
               <FileText className="w-4 h-4" />
+              Doc
+              <MoreHorizontal className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => setShowTemplates(!showTemplates)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Templates"
-            >
-              <Type className="w-4 h-4" />
-            </button>
-            <button
-              onClick={saveDocument}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Save"
-            >
-              <Save className="w-4 h-4" />
-            </button>
-            <button
-              onClick={exportDocument}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Export"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-            <label className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer">
-              <Upload className="w-4 h-4" />
-              <input
-                type="file"
-                accept=".html"
-                onChange={importDocument}
-                className="hidden"
-              />
-            </label>
+            <AnimatePresence>
+              {showDocActionsMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="absolute left-0 top-11 z-20 w-36 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+                >
+                  <button onClick={() => { setShowDocumentList(!showDocumentList); setShowDocActionsMenu(false) }} className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Docs</button>
+                  <button onClick={() => { setShowTemplates(!showTemplates); setShowDocActionsMenu(false) }} className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Templates</button>
+                  <button onClick={() => { saveDocument(); setShowDocActionsMenu(false) }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"><Save className="w-4 h-4" />Save</button>
+                  <button onClick={() => { exportDocument(); setShowDocActionsMenu(false) }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"><Download className="w-4 h-4" />Export</button>
+                  <button onClick={() => { importInputRef.current?.click(); setShowDocActionsMenu(false) }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"><Upload className="w-4 h-4" />Import</button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <input ref={importInputRef} type="file" accept=".html" onChange={importDocument} className="hidden" />
           </div>
 
-          {/* Text Formatting */}
-          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
+          <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-900">
             <select
               value={fontFamily}
               onChange={(e) => {
                 setFontFamily(e.target.value)
                 applyFormat('fontName', e.target.value)
               }}
-              className="px-2 py-1 text-sm border border-gray-300 rounded"
+              className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800"
             >
               {fonts.map(font => (
                 <option key={font} value={font}>{font}</option>
               ))}
             </select>
-            
             <select
               value={fontSize}
               onChange={(e) => {
                 setFontSize(Number(e.target.value))
                 applyFormat('fontSize', e.target.value)
               }}
-              className="px-2 py-1 text-sm border border-gray-300 rounded w-16"
+              className="w-16 rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800"
             >
               {[8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72].map(size => (
                 <option key={size} value={size}>{size}</option>
               ))}
             </select>
-
-            <button
-              onClick={() => applyFormat('bold')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Bold"
-            >
-              <Bold className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => applyFormat('italic')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Italic"
-            >
-              <Italic className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => applyFormat('underline')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Underline"
-            >
-              <Underline className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => applyFormat('strikeThrough')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Strikethrough"
-            >
-              <Strikethrough className="w-4 h-4" />
-            </button>
+            <button onClick={() => applyFormat('bold')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Bold"><Bold className="w-4 h-4" /></button>
+            <button onClick={() => applyFormat('italic')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Italic"><Italic className="w-4 h-4" /></button>
+            <button onClick={() => applyFormat('underline')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Underline"><Underline className="w-4 h-4" /></button>
           </div>
 
-          {/* Alignment */}
-          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
-            <button
-              onClick={() => applyFormat('justifyLeft')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Align Left"
-            >
-              <AlignLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => applyFormat('justifyCenter')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Align Center"
-            >
-              <AlignCenter className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => applyFormat('justifyRight')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Align Right"
-            >
-              <AlignRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => applyFormat('justifyFull')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Justify"
-            >
-              <AlignJustify className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-900">
+            <button onClick={() => applyFormat('justifyLeft')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Align Left"><AlignLeft className="w-4 h-4" /></button>
+            <button onClick={() => applyFormat('justifyCenter')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Align Center"><AlignCenter className="w-4 h-4" /></button>
+            <button onClick={() => applyFormat('insertUnorderedList')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Bullet List"><List className="w-4 h-4" /></button>
           </div>
 
-          {/* Lists */}
-          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
-            <button
-              onClick={() => applyFormat('insertUnorderedList')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Bullet List"
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => applyFormat('insertOrderedList')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Numbered List"
-            >
-              <ListOrdered className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Headings */}
-          <div className="flex items-center space-x-1 border-r border-gray-300 pr-2">
-            <button
-              onClick={() => applyFormat('formatBlock', '<h1>')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Heading 1"
-            >
-              <Heading1 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => applyFormat('formatBlock', '<h2>')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Heading 2"
-            >
-              <Heading2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => applyFormat('formatBlock', '<h3>')}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Heading 3"
-            >
-              <Heading3 className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Colors */}
-          <div className="flex items-center space-x-1">
-            <input
-              type="color"
-              value={textColor}
-              onChange={(e) => {
-                setTextColor(e.target.value)
-                applyFormat('foreColor', e.target.value)
-              }}
-              className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
-              title="Text Color"
-            />
-            <input
-              type="color"
-              value={backgroundColor}
-              onChange={(e) => {
-                setBackgroundColor(e.target.value)
-                applyFormat('hiliteColor', e.target.value)
-              }}
-              className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
-              title="Background Color"
-            />
-          </div>
+          <button onClick={() => setShowAdvancedToolbar(prev => !prev)} className="menu-trigger" title="More tools">
+            <MoreHorizontal className="w-4 h-4" />
+            More
+          </button>
         </div>
+
+        <AnimatePresence>
+          {showAdvancedToolbar && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900"
+            >
+              <button onClick={() => applyFormat('strikeThrough')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Strikethrough"><Strikethrough className="w-4 h-4" /></button>
+              <button onClick={() => applyFormat('justifyRight')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Align Right"><AlignRight className="w-4 h-4" /></button>
+              <button onClick={() => applyFormat('justifyFull')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Justify"><AlignJustify className="w-4 h-4" /></button>
+              <button onClick={() => applyFormat('insertOrderedList')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Numbered List"><ListOrdered className="w-4 h-4" /></button>
+              <button onClick={() => applyFormat('formatBlock', '<h1>')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Heading 1"><Heading1 className="w-4 h-4" /></button>
+              <button onClick={() => applyFormat('formatBlock', '<h2>')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Heading 2"><Heading2 className="w-4 h-4" /></button>
+              <button onClick={() => applyFormat('formatBlock', '<h3>')} className="rounded-lg p-2 hover:bg-white dark:hover:bg-gray-800" title="Heading 3"><Heading3 className="w-4 h-4" /></button>
+              <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-800">
+                Text
+                <input
+                  type="color"
+                  value={textColor}
+                  onChange={(e) => {
+                    setTextColor(e.target.value)
+                    applyFormat('foreColor', e.target.value)
+                  }}
+                  className="h-6 w-6 cursor-pointer border-0 p-0"
+                  title="Text Color"
+                />
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-800">
+                Highlight
+                <input
+                  type="color"
+                  value={backgroundColor}
+                  onChange={(e) => {
+                    setBackgroundColor(e.target.value)
+                    applyFormat('hiliteColor', e.target.value)
+                  }}
+                  className="h-6 w-6 cursor-pointer border-0 p-0"
+                  title="Background Color"
+                />
+              </label>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Content Area */}
@@ -532,16 +499,16 @@ const CollaborativeDocument = () => {
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 250, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              className="bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600 overflow-hidden"
+              className="overflow-hidden border-r border-gray-200 bg-gray-50/70 dark:border-gray-700 dark:bg-gray-900/60"
             >
               {showDocumentList && (
                 <div className="p-4">
-                  <h3 className="font-semibold mb-3">Documents</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Documents</h3>
                   <div className="space-y-2">
                     {state.documents.map(doc => (
                       <div
                         key={doc.id}
-                        className="p-2 bg-white dark:bg-gray-800 rounded border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="cursor-pointer rounded-xl border border-gray-200 bg-white p-2.5 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
                         onClick={() => loadDocument(doc)}
                       >
                         <div className="flex items-center justify-between">
@@ -551,7 +518,7 @@ const CollaborativeDocument = () => {
                               e.stopPropagation()
                               deleteDocument(doc.id)
                             }}
-                            className="text-red-500 hover:text-red-700"
+                            className="rounded-md p-1 text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/20"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -562,10 +529,7 @@ const CollaborativeDocument = () => {
                       </div>
                     ))}
                   </div>
-                  <button
-                    onClick={() => createNewDocument()}
-                    className="w-full mt-3 p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
+                  <button onClick={() => createNewDocument()} className="mt-3 w-full rounded-lg border border-gray-900 bg-gray-900 px-3 py-2 text-sm font-medium text-white dark:border-white dark:bg-white dark:text-gray-900">
                     New Document
                   </button>
                 </div>
@@ -573,7 +537,7 @@ const CollaborativeDocument = () => {
 
               {showTemplates && (
                 <div className="p-4">
-                  <h3 className="font-semibold mb-3">Templates</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Templates</h3>
                   <div className="space-y-2">
                     {templates.map(template => {
                       const Icon = template.icon
@@ -584,10 +548,10 @@ const CollaborativeDocument = () => {
                             createNewDocument(template.id)
                             setShowTemplates(false)
                           }}
-                          className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded border hover:bg-gray-50 dark:hover:bg-gray-700"
+                          className="w-full rounded-xl border border-gray-200 bg-white p-3 text-left hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
                         >
                           <div className="flex items-center space-x-2">
-                            <Icon className="w-4 h-4 text-blue-600" />
+                            <Icon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                             <span className="text-sm">{template.name}</span>
                           </div>
                         </button>
@@ -606,12 +570,13 @@ const CollaborativeDocument = () => {
             ref={editorRef}
             contentEditable={true}
             onBlur={saveDocument}
-            className="flex-1 p-4 overflow-y-auto focus:outline-none"
+            className="flex-1 overflow-y-auto p-4 focus:outline-none"
             style={{
               fontFamily,
               fontSize: `${fontSize}px`,
               color: textColor,
-              backgroundColor
+              backgroundColor,
+              lineHeight: 1.55
             }}
             dangerouslySetInnerHTML={{
               __html: state.currentDocument?.content || '<p>Start typing your document...</p>'

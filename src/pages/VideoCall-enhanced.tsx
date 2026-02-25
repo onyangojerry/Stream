@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useVideoStore } from '../store/videoStore';
+import { useLegacyVideoStore as useVideoStore } from '../store/videoStore';
 import VideoGrid from '../components/VideoGrid-enhanced';
 import ControlPanel from '../components/ControlPanel-enhanced';
 import Layout from '../components/Layout-enhanced';

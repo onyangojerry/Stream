@@ -8,8 +8,12 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAuth = true }: ProtectedRouteProps) => {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, isInitialized } = useAuthStore()
   const location = useLocation()
+
+  if (!isInitialized) {
+    return null
+  }
 
   if (requireAuth && !isAuthenticated) {
     // Redirect to login with the current location as the "from" state

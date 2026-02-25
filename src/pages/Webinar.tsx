@@ -10,6 +10,7 @@ import WaitingRoom from '../components/WaitingRoom'
 import WaitingRoomNotification from '../components/WaitingRoomNotification'
 import WaitingRoomChat from '../components/WaitingRoomChat'
 import CollaborativeDocument from '../components/CollaborativeDocument'
+import MeetingJoinRequestsPanel from '../components/MeetingJoinRequestsPanel'
 import ControlButton from '../components/ControlButton'
 import CallDashboard from '../components/CallDashboard'
 import { 
@@ -33,6 +34,7 @@ const Webinar = () => {
   
   const {
     setCurrentRoom,
+    setCurrentUser,
     localStream,
     setLocalStream,
 
@@ -56,7 +58,7 @@ const Webinar = () => {
   } = useVideoStore()
 
   const { user: currentUser } = useAuthStore()
-  const { getMeetingById, joinMeeting, leaveMeeting: leaveScheduledMeeting } = useSchedulerStore()
+  const { getMeetingByRoomId, joinMeeting, leaveMeeting: leaveScheduledMeeting } = useSchedulerStore()
 
   useEffect(() => {
     if (roomId) {
@@ -76,6 +78,7 @@ const Webinar = () => {
         navigate('/login')
         return
       }
+      setCurrentUser(currentUser)
 
       const urlParams = new URLSearchParams(window.location.search)
       const isJoining = urlParams.get('join') === 'true'
@@ -86,14 +89,14 @@ const Webinar = () => {
         return
       }
 
-      const scheduledMeeting = getMeetingById(roomId || '')
+      const scheduledMeeting = getMeetingByRoomId(roomId || '')
       if (scheduledMeeting) {
         if (scheduledMeeting.currentAttendees >= scheduledMeeting.attendeeLimit) {
           toast.error('Webinar is full. Cannot join.')
           navigate('/')
           return
         }
-        joinMeeting(roomId || '')
+        joinMeeting(scheduledMeeting.id)
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
@@ -125,7 +128,10 @@ const Webinar = () => {
     }
     
     if (roomId) {
-      leaveScheduledMeeting(roomId)
+      const scheduledMeeting = getMeetingByRoomId(roomId)
+      if (scheduledMeeting) {
+        leaveScheduledMeeting(scheduledMeeting.id)
+      }
     }
     
     cleanupWebinar()
@@ -140,6 +146,16 @@ const Webinar = () => {
         toast.success('Screen sharing stopped')
       } else {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+        if (!currentUser) {
+          toast.error('User session unavailable for screen sharing')
+          return
+        }
+        useVideoStore.getState().setScreenShare({
+          id: `screen-share-${Date.now()}`,
+          stream: screenStream,
+          user: currentUser,
+          isActive: true
+        })
         toggleScreenShare()
         
         screenStream.getVideoTracks()[0].addEventListener('ended', () => {
@@ -218,12 +234,12 @@ const Webinar = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white relative">
+    <div className="min-h-screen bg-gray-950 text-white relative">
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 bg-gray-800 bg-opacity-90 backdrop-blur-sm p-4">
+      <div className="absolute left-0 right-0 top-0 z-10 border-b border-white/10 bg-gray-900/80 p-4 backdrop-blur">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold">Webinar</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Webinar</h1>
             <span className="text-sm text-gray-300">Room: {roomId}</span>
           </div>
           
@@ -264,7 +280,7 @@ const Webinar = () => {
         
         {/* Floating Controls */}
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
-          <div className="flex items-center space-x-4 bg-gray-800 bg-opacity-90 backdrop-blur-sm rounded-full px-6 py-3">
+          <div className="flex items-center space-x-3 rounded-full border border-white/10 bg-gray-900/80 px-4 py-2 backdrop-blur">
             <ControlButton
               onClick={toggleAudio}
               title={isAudioEnabled ? 'Mute Audio' : 'Unmute Audio'}
@@ -294,7 +310,7 @@ const Webinar = () => {
               title={isRecording ? 'Stop Recording' : 'Start Recording'}
               variant={isRecording ? 'active' : 'default'}
             >
-              <div className={`w-full h-full rounded-full border-2 ${isRecording ? 'bg-red-500 border-red-500' : 'border-white'}`}></div>
+              <div className={`h-full w-full rounded-full border-2 ${isRecording ? 'border-red-500 bg-red-500' : 'border-current'}`}></div>
             </ControlButton>
             
             <ControlButton
@@ -334,19 +350,25 @@ const Webinar = () => {
         {/* Side Panels */}
         <div className="flex flex-col space-y-2 p-4">
           {showWaitingRoom && (
-            <div className="w-80 bg-white rounded-lg shadow-lg">
+            <div className="w-80">
               <WaitingRoom />
+            </div>
+          )}
+
+          {isPresenter && roomId && (
+            <div className="w-80">
+              <MeetingJoinRequestsPanel roomId={roomId} title="Attendee requests" />
             </div>
           )}
           
           {showChat && (
-            <div className="w-80 bg-white rounded-lg shadow-lg">
+            <div className="w-80">
               <ChatPanel />
             </div>
           )}
           
           {showTranscription && (
-            <div className="w-80 bg-white rounded-lg shadow-lg">
+            <div className="w-80">
               <TranscriptionPanel />
             </div>
           )}
@@ -360,13 +382,13 @@ const Webinar = () => {
 
       {/* Share Meeting Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 text-gray-900 shadow-xl dark:border-gray-800 dark:bg-gray-900 dark:text-white">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Share Webinar</h3>
               <button
                 onClick={() => setShowShareModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -384,11 +406,11 @@ const Webinar = () => {
                     type="text"
                     value={getMeetingLink()}
                     readOnly
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none"
+                    className="flex-1 rounded-l-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                   />
                   <button
                     onClick={handleCopyLink}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-r-lg transition-colors"
+                    className="rounded-r-xl border border-gray-900 bg-gray-900 px-4 py-2 text-white transition-colors dark:border-white dark:bg-white dark:text-gray-900"
                   >
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </button>
@@ -398,13 +420,13 @@ const Webinar = () => {
               <div className="flex space-x-3">
                 <button
                   onClick={handleShareNative}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors"
+                  className="flex-1 rounded-xl border border-gray-900 bg-gray-900 px-4 py-2 text-white transition-colors dark:border-white dark:bg-white dark:text-gray-900"
                 >
                   Share
                 </button>
                 <button
                   onClick={() => setShowShareModal(false)}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg transition-colors"
+                  className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
                   Cancel
                 </button>

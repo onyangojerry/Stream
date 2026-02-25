@@ -31,23 +31,23 @@ const ControlButton = ({
   const [isHovered, setIsHovered] = useState(false)
 
   const getVariantClasses = () => {
-    const baseClasses = 'transition-all duration-200 ease-in-out rounded-full'
+    const baseClasses = 'transition-colors duration-150 ease-out rounded-full border'
     
     switch (variant) {
       case 'default':
-        return `${baseClasses} bg-gray-800 hover:bg-gray-700 active:bg-gray-600 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800`
       case 'muted':
-        return `${baseClasses} bg-red-600 hover:bg-red-500 active:bg-red-700 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50`
       case 'active':
-        return `${baseClasses} bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white shadow-lg hover:shadow-xl active:shadow-inner ring-2 ring-blue-400 ring-offset-2`
+        return `${baseClasses} border-gray-900 bg-gray-900 text-white hover:bg-gray-800 dark:border-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200`
       case 'danger':
-        return `${baseClasses} bg-red-600 hover:bg-red-500 active:bg-red-700 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} border-red-300 bg-white text-red-700 hover:bg-red-50 dark:border-red-900/40 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/20`
       case 'success':
-        return `${baseClasses} bg-green-600 hover:bg-green-500 active:bg-green-700 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800`
       case 'warning':
-        return `${baseClasses} bg-yellow-600 hover:bg-yellow-500 active:bg-yellow-700 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300 dark:hover:bg-amber-950/40`
       default:
-        return `${baseClasses} bg-gray-800 hover:bg-gray-700 active:bg-gray-600 text-white shadow-lg hover:shadow-xl active:shadow-inner`
+        return `${baseClasses} border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800`
     }
   }
 
@@ -109,7 +109,7 @@ const ControlButton = ({
         whileHover={{ scale: disabled ? 1 : 1.1 }}
         whileTap={{ scale: disabled ? 1 : 0.9 }}
         className={`
-          flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+          flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:focus:ring-offset-gray-950
           ${getVariantClasses()}
           ${getSizeClasses()}
           ${getDisabledClasses()}
@@ -137,21 +137,20 @@ const ControlButton = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.9 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 z-50"
+            className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2"
           >
-            <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-xl whitespace-nowrap max-w-xs">
+            <div className="max-w-xs whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
               <div className="font-medium">{title}</div>
               {active && (
-                <div className="text-xs text-gray-300 mt-1">
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   Currently active
                 </div>
               )}
               {variant === 'muted' && (
-                <div className="text-xs text-gray-300 mt-1">
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   Click to enable
                 </div>
               )}
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
             </div>
           </motion.div>
         )}

@@ -201,18 +201,18 @@ const TranscriptionPanel = () => {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="border-b border-gray-200 p-4 dark:border-gray-800">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Transcription</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-gray-900 dark:text-white">Transcription</h3>
           <div className="flex items-center space-x-2">
             <button
               onClick={handleToggleTranscription}
               className={`p-2 rounded-lg transition-colors ${
                 isTranscriptionEnabled 
-                  ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400' 
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                  ? 'border border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900'
+                  : 'border border-gray-200 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
               }`}
               title={isTranscriptionEnabled ? 'Stop Transcription' : 'Start Transcription'}
             >
@@ -220,14 +220,14 @@ const TranscriptionPanel = () => {
             </button>
             <button
               onClick={handleDownload}
-              className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
               title="Download Transcription"
             >
               <Download className="w-4 h-4" />
             </button>
             <button
               onClick={clearTranscription}
-              className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
               title="Clear Transcription"
             >
               <Trash2 className="w-4 h-4" />
@@ -236,13 +236,13 @@ const TranscriptionPanel = () => {
         </div>
         
         {/* Mode Selector */}
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setTranscriptionMode('speech')}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
               transcriptionMode === 'speech'
-                ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                ? 'border border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900'
+                : 'border border-gray-200 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
             }`}
           >
             Speech
@@ -251,8 +251,8 @@ const TranscriptionPanel = () => {
             onClick={() => setTranscriptionMode('sign-language')}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
               transcriptionMode === 'sign-language'
-                ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                ? 'border border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900'
+                : 'border border-gray-200 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
             }`}
           >
             Sign Language
@@ -261,8 +261,8 @@ const TranscriptionPanel = () => {
             onClick={() => setTranscriptionMode('both')}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
               transcriptionMode === 'both'
-                ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                ? 'border border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900'
+                : 'border border-gray-200 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
             }`}
           >
             Both
@@ -278,7 +278,7 @@ const TranscriptionPanel = () => {
                 value={currentSpeaker}
                 onChange={(e) => setCurrentSpeaker(e.target.value)}
                 placeholder="Speaker name"
-                className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="flex-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -304,10 +304,10 @@ const TranscriptionPanel = () => {
       </div>
 
       {/* Transcription Results */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {/* Error Display */}
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-3">
+          <div className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900/40 dark:bg-red-950/20">
             <div className="flex items-start space-x-2">
               <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
@@ -327,7 +327,7 @@ const TranscriptionPanel = () => {
 
         {/* Browser Support Warning */}
         {!isSupported && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-3">
+          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
             <div className="flex items-start space-x-2">
               <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
               <div>

@@ -14,6 +14,8 @@ const GroupCall = lazy(() => import('./pages/GroupCall'))
 const Scheduler = lazy(() => import('./pages/Scheduler'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
+const Profile = lazy(() => import('./pages/Profile'))
+const Community = lazy(() => import('./pages/Community'))
 const RecordingTestPage = lazy(() => import('./pages/RecordingTestPage'))
 const TranscriptionTest = lazy(() => import('./pages/TranscriptionTest'))
 const ViewRecordings = lazy(() => import('./pages/ViewRecordings-store'))
@@ -66,6 +68,11 @@ function App() {
               <JoinMeeting />
             </Layout>
           } />
+          <Route path="/community" element={
+            <Layout>
+              <Community />
+            </Layout>
+          } />
           <Route path="/call/:roomId" element={
             <Layout>
               <VideoCall />
@@ -98,6 +105,13 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <ViewRecordings onBack={() => window.history.back()} />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Layout>
+                <Profile />
               </Layout>
             </ProtectedRoute>
           } />

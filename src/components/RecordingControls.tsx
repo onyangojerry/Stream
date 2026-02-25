@@ -5,12 +5,8 @@ import {
   Square, 
   Play, 
   Pause, 
-  Download,
-  Settings,
   Mic,
-  MicOff,
-  AlertCircle,
-  Check
+  AlertCircle
 } from 'lucide-react';
 import { useRecordingStore } from '../store/useRecordingStore';
 

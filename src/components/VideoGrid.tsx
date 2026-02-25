@@ -19,23 +19,36 @@ const VideoGrid = () => {
     }
   }, [screenShare])
 
-  const totalStreams = remoteStreams.length + (localStream ? 1 : 0) + (screenShare ? 1 : 0)
-  
+  const participantCount = remoteStreams.length + (localStream ? 1 : 0)
+  const totalStreams = participantCount + (screenShare ? 1 : 0)
+
   const getGridClass = () => {
+    if (screenShare) {
+      if (participantCount <= 2) return 'grid-cols-1 lg:grid-cols-2'
+      return 'grid-cols-1 lg:grid-cols-3'
+    }
     if (totalStreams <= 1) return 'grid-cols-1'
-    if (totalStreams <= 2) return 'grid-cols-1 sm:grid-cols-2'
-    if (totalStreams <= 4) return 'grid-cols-1 sm:grid-cols-2'
-    if (totalStreams <= 6) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-    if (totalStreams <= 9) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-    return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+    if (totalStreams <= 2) return 'grid-cols-1 md:grid-cols-2'
+    if (totalStreams <= 4) return 'grid-cols-2'
+    if (totalStreams <= 6) return 'grid-cols-2 xl:grid-cols-3'
+    if (totalStreams <= 9) return 'grid-cols-2 lg:grid-cols-3'
+    return 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+  }
+
+  const getTileAspectClass = (isScreenTile = false) => {
+    if (isScreenTile) return 'aspect-video min-h-[220px] lg:min-h-[360px]'
+    if (screenShare) return 'aspect-video'
+    if (totalStreams <= 1) return 'aspect-video min-h-[280px] sm:min-h-[360px] lg:min-h-[520px]'
+    if (totalStreams <= 4) return 'aspect-video'
+    return 'aspect-[4/3]'
   }
 
   return (
     <div className="h-full p-2 sm:p-4">
-      <div className={`grid ${getGridClass()} gap-2 sm:gap-4 h-full`}>
+      <div className={`grid ${getGridClass()} auto-rows-fr gap-2 sm:gap-3 h-full content-start`}>
         {/* Local Video */}
         {localStream && (
-          <div className="video-container relative">
+          <div className={`video-container relative ${getTileAspectClass()} ${screenShare && participantCount > 2 ? 'lg:col-span-1' : ''}`}>
             <video
               ref={localVideoRef}
               autoPlay
@@ -59,7 +72,7 @@ const VideoGrid = () => {
 
         {/* Remote Videos */}
         {remoteStreams.map((stream) => (
-          <div key={stream.id} className="video-container relative">
+          <div key={stream.id} className={`video-container relative ${getTileAspectClass()}`}>
             <video
               autoPlay
               playsInline
@@ -93,7 +106,7 @@ const VideoGrid = () => {
 
         {/* Screen Share */}
         {screenShare && (
-          <div className="video-container relative col-span-full">
+          <div className={`video-container relative col-span-full ${getTileAspectClass(true)} ${participantCount > 2 ? 'lg:col-span-2' : ''}`}>
             <video
               ref={screenShareRef}
               autoPlay
@@ -113,7 +126,7 @@ const VideoGrid = () => {
 
         {/* Placeholder for empty state */}
         {totalStreams === 0 && (
-          <div className="col-span-full flex items-center justify-center h-full">
+          <div className="col-span-full flex min-h-[320px] items-center justify-center h-full">
             <div className="text-center text-gray-400 p-4">
               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                 <Video className="w-6 h-6 sm:w-8 sm:h-8" />

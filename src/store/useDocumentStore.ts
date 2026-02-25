@@ -217,7 +217,20 @@ export const useDocumentStore = create<DocumentState>()(
       partialize: (state) => ({
         documents: state.documents,
         documentPermissions: state.documentPermissions
-      })
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+
+        state.documents = state.documents.map(doc => ({
+          ...doc,
+          createdAt: new Date(doc.createdAt),
+          updatedAt: new Date(doc.updatedAt),
+        }))
+        state.documentPermissions = state.documentPermissions.map(permission => ({
+          ...permission,
+          grantedAt: new Date(permission.grantedAt),
+        }))
+      }
     }
   )
 )

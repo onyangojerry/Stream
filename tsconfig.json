@@ -20,5 +20,13 @@
     "types": ["vite/client"]
   },
   "include": ["src"],
+  "exclude": [
+    "src/**/*-enhanced.tsx",
+    "src/**/*-responsive.tsx",
+    "src/pages/InstantMeeting.tsx",
+    "src/pages/ScheduleMeeting.tsx",
+    "src/pages/ViewRecordings.tsx",
+    "src/store/videoStore.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

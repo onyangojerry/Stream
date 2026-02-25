@@ -8,6 +8,8 @@ export interface User {
   name: string
   email: string
   avatar?: string
+  githubProfile?: string
+  interestDescription?: string
   isOnline: boolean
   createdAt: Date
   lastLoginAt: Date
@@ -17,6 +19,7 @@ export interface AuthState {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
+  isInitialized: boolean
   error: string | null
   signup: (userData: { name: string; email: string; password: string }) => Promise<boolean>
   login: (credentials: { email: string; password: string }) => Promise<boolean>
@@ -28,12 +31,16 @@ export interface AuthState {
   resetPassword: (email: string) => Promise<boolean>
 }
 
+let authStateSubscription: { unsubscribe: () => void } | null = null
+
 const mapSupabaseUserToUser = (supabaseUser: SupabaseUser, profile?: any): User => {
   return {
     id: supabaseUser.id,
     name: profile?.name || supabaseUser.email?.split('@')[0] || 'User',
     email: supabaseUser.email || '',
     avatar: profile?.avatar_url || supabaseUser.user_metadata?.avatar_url,
+    githubProfile: profile?.github_profile || profile?.github_url || supabaseUser.user_metadata?.github_profile,
+    interestDescription: profile?.interest_description || profile?.bio || supabaseUser.user_metadata?.interest_description,
     isOnline: true,
     createdAt: new Date(supabaseUser.created_at),
     lastLoginAt: new Date(),
@@ -46,10 +53,12 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       isLoading: false,
+      isInitialized: false,
       error: null,
 
       initializeAuth: async () => {
         try {
+          set({ isInitialized: false })
           const { data: { session } } = await supabase.auth.getSession()
           
           if (session?.user) {
@@ -65,7 +74,8 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Listen for auth changes
-          supabase.auth.onAuthStateChange(async (event, session) => {
+          authStateSubscription?.unsubscribe()
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session?.user) {
               const { data: profile } = await supabase
                 .from('profiles')
@@ -79,8 +89,11 @@ export const useAuthStore = create<AuthState>()(
               set({ user: null, isAuthenticated: false })
             }
           })
+          authStateSubscription = subscription
         } catch (error) {
           console.error('Error initializing auth:', error)
+        } finally {
+          set({ isInitialized: true })
         }
       },
 
@@ -259,6 +272,8 @@ export const useAuthStore = create<AuthState>()(
             .update({
               name: updates.name,
               avatar_url: updates.avatar,
+              github_profile: updates.githubProfile,
+              interest_description: updates.interestDescription,
               updated_at: new Date().toISOString(),
             })
             .eq('id', user.id)
@@ -282,6 +297,8 @@ export const useAuthStore = create<AuthState>()(
             id: userId,
             name: `Demo User ${Math.floor(Math.random() * 1000)}`,
             email: `demo${Math.floor(Math.random() * 10000)}@demo.com`,
+            githubProfile: '',
+            interestDescription: '',
             isOnline: true,
             createdAt: new Date(),
             lastLoginAt: new Date()
@@ -304,6 +321,15 @@ export const useAuthStore = create<AuthState>()(
         user: state.user, 
         isAuthenticated: state.isAuthenticated 
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.user) {
+          state.user = {
+            ...state.user,
+            createdAt: new Date(state.user.createdAt),
+            lastLoginAt: new Date(state.user.lastLoginAt),
+          }
+        }
+      },
     }
   )
 )

@@ -22,48 +22,42 @@ const WaitingRoomChat = () => {
   const [isExpanded, setIsExpanded] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Auto-add welcome message when component mounts
   useEffect(() => {
     if (currentUser && !isHost) {
-      const welcomeMessage: WaitingRoomMessage = {
-        id: 'welcome-' + Date.now(),
-        userId: 'system',
-        userName: 'System',
-        message: `Hi ${currentUser.name}! You can chat with the host while waiting for approval.`,
-        timestamp: new Date(),
-        isHost: false
-      }
-      setMessages([welcomeMessage])
+      setMessages([
+        {
+          id: `welcome-${Date.now()}`,
+          userId: 'system',
+          userName: 'System',
+          message: `Hi ${currentUser.name}! You can chat with the host while waiting for approval.`,
+          timestamp: new Date(),
+          isHost: false,
+        },
+      ])
     }
   }, [currentUser, isHost])
 
   const handleSendMessage = () => {
     if (!newMessage.trim() || !currentUser) return
 
-    const message: WaitingRoomMessage = {
-      id: Date.now().toString(),
-      userId: currentUser.id,
-      userName: currentUser.name,
-      message: newMessage.trim(),
-      timestamp: new Date(),
-      isHost: isHost
-    }
-
-    setMessages(prev => [...prev, message])
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        userId: currentUser.id,
+        userName: currentUser.name,
+        message: newMessage.trim(),
+        timestamp: new Date(),
+        isHost,
+      },
+    ])
     setNewMessage('')
 
-    // Show toast for host when attendee sends message
-    if (!isHost) {
-      toast.success('Message sent to host')
-    }
+    if (!isHost) toast.success('Message sent to host')
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -73,23 +67,21 @@ const WaitingRoomChat = () => {
     }
   }
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
+  const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
   if (!isExpanded) {
     return (
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.98 }}
         onClick={() => setIsExpanded(true)}
-        className="fixed bottom-20 right-4 z-40 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-200"
+        className="fixed bottom-20 right-4 z-40 rounded-2xl border border-gray-200 bg-white p-3 text-gray-700 shadow-lg dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200"
         title="Open waiting room chat"
       >
         <div className="relative">
-          <MessageCircle className="w-6 h-6" />
+          <MessageCircle className="h-5 w-5" />
           {messages.length > 1 && (
-            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-gray-900 px-1 text-[10px] text-white dark:bg-white dark:text-gray-900">
               {messages.length - 1}
             </span>
           )}
@@ -100,83 +92,75 @@ const WaitingRoomChat = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.8, y: 50 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.8, y: 50 }}
-      className="fixed bottom-20 right-4 z-40 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 10 }}
+      className="fixed bottom-20 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900"
     >
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <MessageCircle className="w-5 h-5 text-white" />
-          <h3 className="text-white font-semibold">
-            {isHost ? 'Waiting Room Chat' : 'Chat with Host'}
-          </h3>
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+        <div className="flex items-center gap-2">
+          <MessageCircle className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{isHost ? 'Waiting Room Chat' : 'Chat with Host'}</h3>
         </div>
         <button
           onClick={() => setIsExpanded(false)}
-          className="text-white hover:bg-white/20 p-1 rounded-full transition-colors"
+          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
         >
-          <span className="text-lg">×</span>
+          ×
         </button>
       </div>
 
-      {/* Messages */}
-      <div className="h-64 overflow-y-auto p-4 space-y-3">
+      <div className="h-64 space-y-3 overflow-y-auto px-4 py-4">
         <AnimatePresence>
-          {messages.map((message) => (
-            <motion.div
-              key={message.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex ${message.userId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`max-w-[80%] ${message.userId === currentUser?.id ? 'order-2' : 'order-1'}`}>
-                <div className={`rounded-lg px-3 py-2 ${
-                  message.userId === currentUser?.id 
-                    ? 'bg-blue-500 text-white' 
-                    : message.userId === 'system'
-                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                    : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200'
-                }`}>
-                  {message.userId !== 'system' && (
-                    <div className="flex items-center space-x-2 mb-1">
-                      <User className="w-3 h-3" />
-                      <span className="text-xs font-medium opacity-80">
-                        {message.userName} {message.isHost && '(Host)'}
-                      </span>
+          {messages.map((message) => {
+            const isMine = message.userId === currentUser?.id
+            const isSystem = message.userId === 'system'
+            return (
+              <motion.div key={message.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[85%] rounded-2xl border px-3 py-2 ${
+                    isMine
+                      ? 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900'
+                      : isSystem
+                        ? 'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                        : 'border-gray-200 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white'
+                  }`}
+                >
+                  {!isSystem && (
+                    <div className="mb-1 flex items-center gap-1 text-xs opacity-75">
+                      <User className="h-3 w-3" />
+                      <span>{message.userName}{message.isHost ? ' (Host)' : ''}</span>
                     </div>
                   )}
-                  <p className="text-sm">{message.message}</p>
-                  <div className="flex items-center space-x-1 mt-1">
-                    <Clock className="w-3 h-3 opacity-60" />
-                    <span className="text-xs opacity-60">{formatTime(message.timestamp)}</span>
+                  <p className="text-sm leading-relaxed">{message.message}</p>
+                  <div className="mt-1 flex items-center gap-1 text-xs opacity-60">
+                    <Clock className="h-3 w-3" />
+                    <span>{formatTime(message.timestamp)}</span>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            )
+          })}
         </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-600">
-        <div className="flex space-x-2">
+      <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
+        <div className="flex gap-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={isHost ? "Type a message to attendees..." : "Type a message to host..."}
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            onKeyDown={handleKeyPress}
+            placeholder={isHost ? 'Type a message to attendees...' : 'Type a message to host...'}
+            className="flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-gray-600"
           />
           <button
             onClick={handleSendMessage}
             disabled={!newMessage.trim()}
-            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+            className="rounded-xl border border-gray-900 bg-gray-900 px-3 py-2 text-white transition disabled:cursor-not-allowed disabled:opacity-40 dark:border-white dark:bg-white dark:text-gray-900"
           >
-            <Send className="w-4 h-4" />
+            <Send className="h-4 w-4" />
           </button>
         </div>
       </div>

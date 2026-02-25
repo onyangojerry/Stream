@@ -27,7 +27,7 @@ export interface VideoStoreState {
   leaveRoom: () => void
 }
 
-export const useVideoStore = create<VideoStoreState>()(
+export const useLegacyVideoStore = create<VideoStoreState>()(
   persist(
     (set, get) => ({
       participants: [],
