@@ -12,6 +12,7 @@ const JoinMeeting = lazy(() => import('./pages/JoinMeeting'))
 const Webinar = lazy(() => import('./pages/Webinar'))
 const GroupCall = lazy(() => import('./pages/GroupCall'))
 const Scheduler = lazy(() => import('./pages/Scheduler'))
+const Calls = lazy(() => import('./pages/Calls'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
 const Profile = lazy(() => import('./pages/Profile'))
@@ -71,6 +72,11 @@ function App() {
           <Route path="/community" element={
             <Layout>
               <Community />
+            </Layout>
+          } />
+          <Route path="/calls" element={
+            <Layout>
+              <Calls />
             </Layout>
           } />
           <Route path="/call/:roomId" element={

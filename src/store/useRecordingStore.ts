@@ -24,6 +24,8 @@ interface RecordingState {
   isRecording: boolean;
   isPaused: boolean;
   recordingDuration: number;
+  currentMeetingId: string | null;
+  currentRecordingTitle: string | null;
   recordings: Recording[];
   currentRecordingId: string | null;
   chunks: Blob[];
@@ -45,6 +47,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   isRecording: false,
   isPaused: false,
   recordingDuration: 0,
+  currentMeetingId: null,
+  currentRecordingTitle: null,
   recordings: [
     // Sample recordings for testing
     {
@@ -87,6 +91,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
   startRecording: async (meetingId: string, title = 'Screen Recording') => {
     try {
+      if (get().isRecording) return
       // Request screen capture
       const displayMediaStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
@@ -190,6 +195,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
           isRecording: false,
           isPaused: false,
           recordingDuration: 0,
+          currentMeetingId: null,
+          currentRecordingTitle: null,
           currentRecordingId: null,
           mediaRecorder: null,
           chunks: []
@@ -204,7 +211,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
       mediaRecorder.onerror = (event) => {
         console.error('Recording error:', event);
-        set({ isRecording: false, mediaRecorder: null });
+        set({ isRecording: false, mediaRecorder: null, currentMeetingId: null, currentRecordingTitle: null });
       };
 
       // Handle screen share ending
@@ -221,6 +228,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
         mediaRecorder,
         isRecording: true,
         isPaused: false,
+        currentMeetingId: meetingId,
+        currentRecordingTitle: title,
         currentRecordingId: recordingId,
         chunks
       });

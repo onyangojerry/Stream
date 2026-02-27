@@ -1,5 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import {
+  deleteScheduledMeeting as deleteScheduledMeetingRemote,
+  fetchScheduledMeetings,
+  upsertScheduledMeeting,
+} from '../services/schedulerApi'
 
 export interface ScheduledMeeting {
   id: string
@@ -13,6 +18,8 @@ export interface ScheduledMeeting {
   attendeeLimit: number
   currentAttendees: number
   roomId: string
+  isPublicListing: boolean
+  joinedUserIds: string[]
   isActive: boolean
   isStarted: boolean
   isEnded: boolean
@@ -34,18 +41,21 @@ export interface ScheduledMeeting {
 interface SchedulerState {
   scheduledMeetings: ScheduledMeeting[]
   activeMeetings: ScheduledMeeting[]
+  initializeScheduler: () => Promise<void>
   addMeeting: (meeting: Omit<ScheduledMeeting, 'id' | 'createdAt' | 'updatedAt'>) => void
   updateMeeting: (id: string, updates: Partial<ScheduledMeeting>) => void
   deleteMeeting: (id: string) => void
   getMeetingById: (id: string) => ScheduledMeeting | undefined
   getMeetingByRoomId: (roomId: string) => ScheduledMeeting | undefined
+  getMyOngoingMeetings: (userId: string) => ScheduledMeeting[]
+  getUserActiveMeeting: (userId: string) => ScheduledMeeting | undefined
   getUpcomingMeetings: () => ScheduledMeeting[]
   getPastMeetings: () => ScheduledMeeting[]
   getActiveMeetings: () => ScheduledMeeting[]
   startMeeting: (meetingId: string) => void
   endMeeting: (meetingId: string) => void
-  joinMeeting: (meetingId: string) => boolean
-  leaveMeeting: (meetingId: string) => void
+  joinMeeting: (meetingId: string, userId?: string) => boolean
+  leaveMeeting: (meetingId: string, userId?: string) => void
   updateMeetingDuration: (meetingId: string) => void
 }
 
@@ -58,12 +68,23 @@ export const useSchedulerStore = create<SchedulerState>()(
     (set, get) => ({
       scheduledMeetings: [],
       activeMeetings: [],
+      initializeScheduler: async () => {
+        try {
+          const remoteMeetings = await fetchScheduledMeetings()
+          if (!remoteMeetings.length) return
+          set({ scheduledMeetings: remoteMeetings })
+        } catch (error) {
+          console.warn('Failed to load scheduled meetings', error)
+        }
+      },
       
       addMeeting: (meetingData) => {
         const newMeeting: ScheduledMeeting = {
           ...meetingData,
           id: `meeting-${Date.now()}`,
           roomId: generateRoomId(),
+          isPublicListing: meetingData.isPublicListing ?? false,
+          joinedUserIds: meetingData.joinedUserIds ?? [],
           currentAttendees: 0,
           isActive: false,
           isStarted: false,
@@ -75,15 +96,21 @@ export const useSchedulerStore = create<SchedulerState>()(
         set((state) => ({
           scheduledMeetings: [...state.scheduledMeetings, newMeeting]
         }))
+        void upsertScheduledMeeting(newMeeting).catch((error) => {
+          console.warn('Failed to persist scheduled meeting', error)
+        })
       },
       
       updateMeeting: (id, updates) => {
         set((state) => ({
-          scheduledMeetings: state.scheduledMeetings.map(meeting =>
-            meeting.id === id
-              ? { ...meeting, ...updates, updatedAt: new Date() }
-              : meeting
-          )
+          scheduledMeetings: state.scheduledMeetings.map(meeting => {
+            if (meeting.id !== id) return meeting
+            const nextMeeting = { ...meeting, ...updates, updatedAt: new Date() }
+            void upsertScheduledMeeting(nextMeeting).catch((error) => {
+              console.warn('Failed to update scheduled meeting', error)
+            })
+            return nextMeeting
+          })
         }))
       },
       
@@ -91,6 +118,9 @@ export const useSchedulerStore = create<SchedulerState>()(
         set((state) => ({
           scheduledMeetings: state.scheduledMeetings.filter(meeting => meeting.id !== id)
         }))
+        void deleteScheduledMeetingRemote(id).catch((error) => {
+          console.warn('Failed to delete scheduled meeting', error)
+        })
       },
       
       getMeetingById: (id) => {
@@ -99,6 +129,18 @@ export const useSchedulerStore = create<SchedulerState>()(
 
       getMeetingByRoomId: (roomId) => {
         return get().scheduledMeetings.find(meeting => meeting.roomId === roomId)
+      },
+
+      getMyOngoingMeetings: (userId) => {
+        return get().scheduledMeetings
+          .filter((meeting) => meeting.isStarted && !meeting.isEnded && (meeting.hostId === userId || meeting.joinedUserIds.includes(userId)))
+          .sort((a, b) => (b.actualStartTime || b.startTime).getTime() - (a.actualStartTime || a.startTime).getTime())
+      },
+
+      getUserActiveMeeting: (userId) => {
+        return get().scheduledMeetings.find(
+          (meeting) => meeting.isStarted && !meeting.isEnded && (meeting.hostId === userId || meeting.joinedUserIds.includes(userId)),
+        )
       },
       
       getUpcomingMeetings: () => {
@@ -160,27 +202,39 @@ export const useSchedulerStore = create<SchedulerState>()(
         get().updateMeeting(meetingId, { duration })
       },
       
-      joinMeeting: (meetingId) => {
+      joinMeeting: (meetingId, userId) => {
         const meeting = get().getMeetingById(meetingId)
         if (!meeting) return false
         
         if (meeting.currentAttendees >= meeting.attendeeLimit) {
           return false // Meeting is full
         }
+
+        if (userId) {
+          const existing = get().getUserActiveMeeting(userId)
+          if (existing && existing.id !== meetingId) {
+            return false
+          }
+          if (meeting.joinedUserIds.includes(userId) || meeting.hostId === userId) {
+            return true
+          }
+        }
         
         get().updateMeeting(meetingId, {
-          currentAttendees: meeting.currentAttendees + 1
+          currentAttendees: meeting.currentAttendees + 1,
+          joinedUserIds: userId ? [...meeting.joinedUserIds, userId] : meeting.joinedUserIds,
         })
         
         return true
       },
       
-      leaveMeeting: (meetingId) => {
+      leaveMeeting: (meetingId, userId) => {
         const meeting = get().getMeetingById(meetingId)
         if (!meeting) return
         
         get().updateMeeting(meetingId, {
-          currentAttendees: Math.max(0, meeting.currentAttendees - 1)
+          currentAttendees: Math.max(0, meeting.currentAttendees - 1),
+          joinedUserIds: userId ? meeting.joinedUserIds.filter((id) => id !== userId) : meeting.joinedUserIds,
         })
       },
     }),
@@ -191,6 +245,8 @@ export const useSchedulerStore = create<SchedulerState>()(
 
         const reviveMeeting = (meeting: ScheduledMeeting): ScheduledMeeting => ({
           ...meeting,
+          isPublicListing: typeof meeting.isPublicListing === 'boolean' ? meeting.isPublicListing : false,
+          joinedUserIds: Array.isArray(meeting.joinedUserIds) ? meeting.joinedUserIds : [],
           startTime: new Date(meeting.startTime),
           endTime: new Date(meeting.endTime),
           createdAt: new Date(meeting.createdAt),

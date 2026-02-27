@@ -5,6 +5,8 @@ import type {
   CommunityThread,
   CommunityThreadMessage,
   MeetingJoinRequest,
+  MaterialReactionEvent,
+  MaterialType,
   PublicMaterial,
   PublicUserProfile,
 } from '../store/useCommunityStore'
@@ -14,10 +16,12 @@ const TABLES = {
   joinRequests: 'meeting_join_requests',
   materials: 'public_materials',
   reactions: 'material_reactions',
+  reactionEvents: 'material_reaction_events',
   invites: 'collaboration_invites',
   communities: 'communities',
   threads: 'community_threads',
   threadMessages: 'community_thread_messages',
+  userFollows: 'user_follows',
 } as const
 
 export const COMMUNITY_BUCKET = 'public-materials'
@@ -70,6 +74,35 @@ export async function setUserActive(userId: string, active: boolean) {
     .from(TABLES.profilesPublic)
     .update({ is_active: active, last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', userId)
+  if (error) throw error
+}
+
+export async function fetchFollowedUserIds(followerUserId: string): Promise<string[]> {
+  if (!configured()) return []
+  const { data, error } = await supabase
+    .from(TABLES.userFollows)
+    .select('followed_user_id')
+    .eq('follower_user_id', followerUserId)
+  if (error) throw error
+  return (data ?? []).map((row: any) => row.followed_user_id)
+}
+
+export async function followUser(followerUserId: string, followedUserId: string) {
+  if (!configured()) return
+  const { error } = await supabase.from(TABLES.userFollows).upsert({
+    follower_user_id: followerUserId,
+    followed_user_id: followedUserId,
+  })
+  if (error) throw error
+}
+
+export async function unfollowUser(followerUserId: string, followedUserId: string) {
+  if (!configured()) return
+  const { error } = await supabase
+    .from(TABLES.userFollows)
+    .delete()
+    .eq('follower_user_id', followerUserId)
+    .eq('followed_user_id', followedUserId)
   if (error) throw error
 }
 
@@ -157,7 +190,6 @@ export async function fetchPublicMaterials(viewerUserId?: string): Promise<Publi
     type: row.type,
     url: row.url,
     githubUrl: row.github_url ?? undefined,
-    demoUrl: row.demo_url ?? undefined,
     ownerUserId: row.owner_user_id ?? undefined,
     ownerName: row.owner_name,
     isPublic: Boolean(row.is_public),
@@ -179,7 +211,6 @@ export async function createPublicMaterial(payload: Omit<PublicMaterial, 'id' | 
     type: payload.type,
     url: payload.url,
     github_url: payload.githubUrl ?? null,
-    demo_url: payload.demoUrl ?? null,
     owner_user_id: payload.ownerUserId ?? null,
     owner_name: payload.ownerName,
     is_public: payload.isPublic,
@@ -202,7 +233,6 @@ export async function createPublicMaterialWithId(
     type: payload.type,
     url: payload.url,
     github_url: payload.githubUrl ?? null,
-    demo_url: payload.demoUrl ?? null,
     owner_user_id: payload.ownerUserId ?? null,
     owner_name: payload.ownerName,
     is_public: payload.isPublic,
@@ -223,7 +253,6 @@ export async function updatePublicMaterial(id: string, updates: Partial<PublicMa
   if (updates.url !== undefined) payload.url = updates.url
   if (updates.type !== undefined) payload.type = updates.type
   if (updates.githubUrl !== undefined) payload.github_url = updates.githubUrl ?? null
-  if (updates.demoUrl !== undefined) payload.demo_url = updates.demoUrl ?? null
   if (updates.visibility !== undefined) payload.visibility = updates.visibility
   if (updates.isPublic !== undefined) payload.is_public = updates.isPublic
   if (updates.publishAfterInviteAccepted !== undefined) payload.publish_after_invite_accepted = updates.publishAfterInviteAccepted
@@ -268,6 +297,45 @@ export async function addMaterialReaction(materialId: string, reaction: string, 
     reaction,
     user_id: userId ?? null,
   })
+  if (error) throw error
+}
+
+export async function fetchMaterialReactionEvents(limit = 200): Promise<MaterialReactionEvent[]> {
+  if (!configured()) return []
+  const { data, error } = await supabase
+    .from(TABLES.reactionEvents)
+    .select('id,material_id,reaction,action,actor_user_id,created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    materialId: row.material_id,
+    reaction: row.reaction,
+    action: row.action,
+    actorUserId: row.actor_user_id ?? undefined,
+    createdAt: normalizeDate(row.created_at),
+  }))
+}
+
+export async function logMaterialReactionEvent(payload: {
+  id?: string
+  materialId: string
+  reaction: string
+  action: 'add' | 'remove'
+  actorUserId?: string
+  createdAt?: Date
+}) {
+  if (!configured()) return
+  const insertPayload: Record<string, unknown> = {
+    material_id: payload.materialId,
+    reaction: payload.reaction,
+    action: payload.action,
+    actor_user_id: payload.actorUserId ?? null,
+    created_at: (payload.createdAt ?? new Date()).toISOString(),
+  }
+  if (payload.id) insertPayload.id = payload.id
+  const { error } = await supabase.from(TABLES.reactionEvents).insert(insertPayload)
   if (error) throw error
 }
 
@@ -445,15 +513,27 @@ export async function touchThread(threadId: string) {
   if (error) throw error
 }
 
-export async function uploadPublicMaterialFile(file: File, ownerUserId?: string) {
+const materialCategoryMap: Record<MaterialType, string> = {
+  recording: 'recordings',
+  presentation: 'presentations',
+  image: 'images',
+  video: 'videos',
+  object: 'objects',
+  document: 'documents',
+  project: 'projects',
+}
+
+export async function uploadPublicMaterialFile(file: File, materialType: MaterialType, ownerUserId?: string) {
   if (!configured()) throw new Error('Supabase is not configured')
   const ext = file.name.split('.').pop() || 'bin'
-  const path = `${ownerUserId || 'anonymous'}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const category = materialCategoryMap[materialType] ?? 'misc'
+  const userFolder = ownerUserId || 'anonymous'
+  const path = `${category}/${userFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
   const { error } = await supabase.storage.from(COMMUNITY_BUCKET).upload(path, file, {
     cacheControl: '3600',
     upsert: false,
   })
   if (error) throw error
   const { data } = supabase.storage.from(COMMUNITY_BUCKET).getPublicUrl(path)
-  return { path, publicUrl: data.publicUrl }
+  return { path, category, publicUrl: data.publicUrl }
 }

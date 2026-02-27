@@ -1,23 +1,61 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSchedulerStore } from '../store/useSchedulerStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { Calendar, Clock, Users, Video, Presentation, Settings, Plus, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 
+const toDateInput = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const toTimeInput = (date: Date) => {
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+const combineDateTime = (dateValue: string, timeValue: string) => {
+  const [year, month, day] = dateValue.split('-').map(Number)
+  const [hours, minutes] = timeValue.split(':').map(Number)
+  return new Date(year, month - 1, day, hours, minutes, 0, 0)
+}
+
+const getDefaultScheduleFields = () => {
+  const now = new Date()
+  const start = new Date(now)
+  start.setMinutes(Math.ceil((start.getMinutes() + 1) / 15) * 15, 0, 0)
+  if (start <= now) start.setMinutes(start.getMinutes() + 15)
+  const end = new Date(start.getTime() + 60 * 60 * 1000)
+  return {
+    startDate: toDateInput(start),
+    startClock: toTimeInput(start),
+    endDate: toDateInput(end),
+    endClock: toTimeInput(end),
+  }
+}
+
 const MeetingScheduler = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user: currentUser } = useAuthStore()
   const { addMeeting, getUpcomingMeetings } = useSchedulerStore()
+  const defaultSchedule = getDefaultScheduleFields()
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     type: 'group' as 'one-on-one' | 'group' | 'webinar',
-    startTime: '',
-    endTime: '',
+    startDate: defaultSchedule.startDate,
+    startClock: defaultSchedule.startClock,
+    endDate: defaultSchedule.endDate,
+    endClock: defaultSchedule.endClock,
     attendeeLimit: 10,
+    isPublicListing: true,
     settings: {
       allowScreenShare: true,
       allowRecording: true,
@@ -28,7 +66,20 @@ const MeetingScheduler = () => {
     }
   })
 
+  useEffect(() => {
+    const type = searchParams.get('type')
+    if (type !== 'one-on-one' && type !== 'group' && type !== 'webinar') return
+    setFormData((prev) => ({
+      ...prev,
+      type,
+      attendeeLimit: getAttendeeLimitOptions(type)[0] ?? prev.attendeeLimit,
+    }))
+  }, [searchParams])
+
   const upcomingMeetings = getUpcomingMeetings()
+  const todayDate = toDateInput(new Date())
+  const minStartClock = formData.startDate === todayDate ? toTimeInput(new Date()) : undefined
+  const minEndClock = formData.endDate === formData.startDate ? formData.startClock : undefined
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,13 +89,17 @@ const MeetingScheduler = () => {
       return
     }
 
-    if (!formData.title || !formData.startTime || !formData.endTime) {
+    if (!formData.title || !formData.startDate || !formData.startClock || !formData.endDate || !formData.endClock) {
       toast.error('Please fill in all required fields')
       return
     }
 
-    const startTime = new Date(formData.startTime)
-    const endTime = new Date(formData.endTime)
+    const startTime = combineDateTime(formData.startDate, formData.startClock)
+    const endTime = combineDateTime(formData.endDate, formData.endClock)
+    if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
+      toast.error('Please provide valid date and time values')
+      return
+    }
     
     if (startTime <= new Date()) {
       toast.error('Start time must be in the future')
@@ -70,19 +125,25 @@ const MeetingScheduler = () => {
       isStarted: false,
       isEnded: false,
       currentAttendees: 0,
+      joinedUserIds: [],
+      isPublicListing: formData.isPublicListing,
       settings: formData.settings,
     }
 
     addMeeting(meetingData)
     toast.success('Meeting scheduled successfully!')
     setShowForm(false)
+    const resetSchedule = getDefaultScheduleFields()
     setFormData({
       title: '',
       description: '',
       type: 'group',
-      startTime: '',
-      endTime: '',
+      startDate: resetSchedule.startDate,
+      startClock: resetSchedule.startClock,
+      endDate: resetSchedule.endDate,
+      endClock: resetSchedule.endClock,
       attendeeLimit: 10,
+      isPublicListing: true,
       settings: {
         allowScreenShare: true,
         allowRecording: true,
@@ -206,6 +267,15 @@ const MeetingScheduler = () => {
                         <span>{meeting.currentAttendees}/{meeting.attendeeLimit}</span>
                       </span>
                     </div>
+                    <div className="mt-1">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        meeting.isPublicListing
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {meeting.isPublicListing ? 'Public listing' : 'Private listing'}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -323,12 +393,59 @@ const MeetingScheduler = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Start Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.startDate}
+                        min={todayDate}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            startDate: e.target.value,
+                            endDate: prev.endDate < e.target.value ? e.target.value : prev.endDate,
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Start Time *
                       </label>
                       <input
-                        type="datetime-local"
-                        value={formData.startTime}
-                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                        type="time"
+                        step={900}
+                        value={formData.startClock}
+                        min={minStartClock}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            startClock: e.target.value,
+                            endClock:
+                              prev.endDate === prev.startDate && prev.endClock <= e.target.value
+                                ? e.target.value
+                                : prev.endClock,
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        End Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.endDate}
+                        min={formData.startDate || todayDate}
+                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                       />
@@ -339,14 +456,19 @@ const MeetingScheduler = () => {
                         End Time *
                       </label>
                       <input
-                        type="datetime-local"
-                        value={formData.endTime}
-                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                        type="time"
+                        step={900}
+                        value={formData.endClock}
+                        min={minEndClock}
+                        onChange={(e) => setFormData({ ...formData, endClock: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                       />
                     </div>
                   </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Times are scheduled in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
+                  </p>
                 </div>
 
                 {/* Meeting Settings */}
@@ -432,6 +554,19 @@ const MeetingScheduler = () => {
                         className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
                       />
                       <span className="text-sm text-gray-700 dark:text-gray-300">Waiting Room</span>
+                    </label>
+
+                    <label className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={formData.isPublicListing}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          isPublicListing: e.target.checked
+                        })}
+                        className="rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Publish to public community list</span>
                     </label>
                   </div>
                 </div>

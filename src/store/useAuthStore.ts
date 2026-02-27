@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '../lib/supabase'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { useCallSessionStore } from './useCallSessionStore'
 
 export interface User {
   id: string
@@ -26,7 +27,6 @@ export interface AuthState {
   logout: () => Promise<void>
   clearError: () => void
   updateProfile: (updates: Partial<User>) => Promise<void>
-  createDemoUser: () => Promise<void>
   initializeAuth: () => Promise<void>
   resetPassword: (email: string) => Promise<boolean>
 }
@@ -222,6 +222,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         try {
           await supabase.auth.signOut()
+          useCallSessionStore.getState().clearActiveCall()
           set({
             user: null,
             isAuthenticated: false,
@@ -287,33 +288,6 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      createDemoUser: async () => {
-        set({ isLoading: true })
-        
-        try {
-          // Create a demo user without Supabase (temporary session)
-          const userId = `demo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-          const demoUser: User = {
-            id: userId,
-            name: `Demo User ${Math.floor(Math.random() * 1000)}`,
-            email: `demo${Math.floor(Math.random() * 10000)}@demo.com`,
-            githubProfile: '',
-            interestDescription: '',
-            isOnline: true,
-            createdAt: new Date(),
-            lastLoginAt: new Date()
-          }
-          
-          set({ 
-            user: demoUser, 
-            isAuthenticated: true, 
-            isLoading: false,
-            error: null 
-          })
-        } catch (error) {
-          set({ isLoading: false, error: 'Failed to create demo user' })
-        }
-      },
     }),
     {
       name: 'striim-auth',

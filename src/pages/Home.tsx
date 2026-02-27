@@ -61,9 +61,8 @@ const Home = () => {
       return
     }
     // Check if user is authenticated
-    const { isAuthenticated, createDemoUser } = useAuthStore.getState()
+    const { isAuthenticated } = useAuthStore.getState()
     if (!isAuthenticated) {
-      // Offer demo mode or login
       toast(
         (t) => (
           <div>
@@ -78,17 +77,6 @@ const Home = () => {
               >
                 Log In
               </button>
-              <button
-                onClick={async () => {
-                  toast.dismiss(t.id)
-                  // Create demo user and continue
-                  await createDemoUser()
-                  navigate(`/call/${roomId}`)
-                }}
-                className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
-              >
-                Demo Mode
-              </button>
             </div>
           </div>
         ),
@@ -100,10 +88,8 @@ const Home = () => {
   }
 
   const handleStartMeeting = (type: 'video' | 'group' | 'webinar') => {
-    // Check if user is authenticated
-    const { isAuthenticated, createDemoUser } = useAuthStore.getState()
+    const { isAuthenticated } = useAuthStore.getState()
     if (!isAuthenticated) {
-      // Offer demo mode or login
       toast(
         (t) => (
           <div>
@@ -117,18 +103,6 @@ const Home = () => {
                 className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
               >
                 Log In
-              </button>
-              <button
-                onClick={async () => {
-                  toast.dismiss(t.id)
-                  // Create demo user and continue
-                  await createDemoUser()
-                  setSelectedMeetingType(type)
-                  setShowConfirmationModal(true)
-                }}
-                className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
-              >
-                Demo Mode
               </button>
             </div>
           </div>

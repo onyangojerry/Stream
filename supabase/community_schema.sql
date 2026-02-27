@@ -34,10 +34,9 @@ create table if not exists public.public_materials (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   description text,
-  type text not null check (type in ('recording','presentation','image','video','object','document','project','demo')),
+  type text not null check (type in ('recording','presentation','image','video','object','document','project')),
   url text not null,
   github_url text,
-  demo_url text,
   owner_user_id uuid references auth.users(id) on delete set null,
   owner_name text not null,
   is_public boolean not null default true,
@@ -50,9 +49,16 @@ create table if not exists public.public_materials (
 create index if not exists public_materials_public_idx on public.public_materials(is_public);
 
 alter table public.public_materials add column if not exists github_url text;
-alter table public.public_materials add column if not exists demo_url text;
 alter table public.public_materials add column if not exists visibility text not null default 'public';
 alter table public.public_materials add column if not exists publish_after_invite_accepted boolean not null default false;
+alter table public.public_materials drop column if exists demo_url;
+update public.public_materials
+set type = 'project'
+where type not in ('recording','presentation','image','video','object','document','project');
+alter table public.public_materials drop constraint if exists public_materials_type_check;
+alter table public.public_materials
+  add constraint public_materials_type_check
+  check (type in ('recording','presentation','image','video','object','document','project'));
 
 create table if not exists public.material_reactions (
   id uuid primary key default gen_random_uuid(),
@@ -62,6 +68,17 @@ create table if not exists public.material_reactions (
   created_at timestamptz not null default now()
 );
 create index if not exists material_reactions_material_id_idx on public.material_reactions(material_id);
+
+create table if not exists public.material_reaction_events (
+  id uuid primary key default gen_random_uuid(),
+  material_id uuid not null references public.public_materials(id) on delete cascade,
+  reaction text not null,
+  action text not null check (action in ('add','remove')),
+  actor_user_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists material_reaction_events_material_id_idx on public.material_reaction_events(material_id);
+create index if not exists material_reaction_events_created_at_idx on public.material_reaction_events(created_at desc);
 
 create table if not exists public.collaboration_invites (
   id uuid primary key default gen_random_uuid(),
@@ -110,6 +127,57 @@ create table if not exists public.community_thread_messages (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.user_follows (
+  follower_user_id uuid not null references auth.users(id) on delete cascade,
+  followed_user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower_user_id, followed_user_id),
+  constraint user_follows_no_self check (follower_user_id <> followed_user_id)
+);
+create index if not exists user_follows_followed_idx on public.user_follows(followed_user_id);
+
+create table if not exists public.scheduled_meetings (
+  id text primary key,
+  title text not null,
+  description text not null default '',
+  type text not null check (type in ('one-on-one','group','webinar')),
+  start_time timestamptz not null,
+  end_time timestamptz not null,
+  host_id uuid references auth.users(id) on delete set null,
+  host_name text not null,
+  attendee_limit integer not null default 10,
+  current_attendees integer not null default 0,
+  room_id text not null unique,
+  is_public_listing boolean not null default false,
+  joined_user_ids uuid[] not null default '{}',
+  is_active boolean not null default false,
+  is_started boolean not null default false,
+  is_ended boolean not null default false,
+  actual_start_time timestamptz,
+  actual_end_time timestamptz,
+  duration integer,
+  settings jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists scheduled_meetings_start_idx on public.scheduled_meetings(start_time);
+create index if not exists scheduled_meetings_public_idx on public.scheduled_meetings(is_public_listing);
+alter table public.scheduled_meetings add column if not exists joined_user_ids uuid[] not null default '{}';
+
+create table if not exists public.meeting_rsvps (
+  id uuid primary key default gen_random_uuid(),
+  meeting_id text not null references public.scheduled_meetings(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null,
+  email text not null,
+  github_profile text,
+  interest_description text,
+  notify_on_start boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique(meeting_id, email)
+);
+create index if not exists meeting_rsvps_meeting_idx on public.meeting_rsvps(meeting_id);
+create index if not exists meeting_rsvps_email_idx on public.meeting_rsvps(email);
+
 -- Optional timestamp trigger helper
 create or replace function public.set_updated_at()
 returns trigger as $$
@@ -135,6 +203,13 @@ BEGIN
     BEFORE UPDATE ON public.public_materials
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'scheduled_meetings_set_updated_at'
+  ) THEN
+    CREATE TRIGGER scheduled_meetings_set_updated_at
+    BEFORE UPDATE ON public.scheduled_meetings
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+  END IF;
 END $$;
 
 -- Storage bucket for uploaded public materials
@@ -147,10 +222,14 @@ alter table public.profiles_public enable row level security;
 alter table public.meeting_join_requests enable row level security;
 alter table public.public_materials enable row level security;
 alter table public.material_reactions enable row level security;
+alter table public.material_reaction_events enable row level security;
 alter table public.collaboration_invites enable row level security;
 alter table public.communities enable row level security;
 alter table public.community_threads enable row level security;
 alter table public.community_thread_messages enable row level security;
+alter table public.user_follows enable row level security;
+alter table public.scheduled_meetings enable row level security;
+alter table public.meeting_rsvps enable row level security;
 
 -- Baseline permissive policies for prototyping (replace in production)
 do $$
@@ -187,6 +266,13 @@ begin
   end if;
   if not exists (select 1 from pg_policies where tablename = 'material_reactions' and policyname = 'material_reactions_insert') then
     create policy material_reactions_insert on public.material_reactions for insert with check (true);
+  end if;
+
+  if not exists (select 1 from pg_policies where tablename = 'material_reaction_events' and policyname = 'material_reaction_events_read') then
+    create policy material_reaction_events_read on public.material_reaction_events for select using (true);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'material_reaction_events' and policyname = 'material_reaction_events_insert') then
+    create policy material_reaction_events_insert on public.material_reaction_events for insert with check (true);
   end if;
 
   if not exists (select 1 from pg_policies where tablename = 'collaboration_invites' and policyname = 'collaboration_invites_read') then
@@ -227,6 +313,30 @@ begin
   end if;
   if not exists (select 1 from pg_policies where tablename = 'community_thread_messages' and policyname = 'community_thread_messages_insert') then
     create policy community_thread_messages_insert on public.community_thread_messages for insert with check (true);
+  end if;
+
+  if not exists (select 1 from pg_policies where tablename = 'user_follows' and policyname = 'user_follows_read') then
+    create policy user_follows_read on public.user_follows for select using (true);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'user_follows' and policyname = 'user_follows_owner_write') then
+    create policy user_follows_owner_write on public.user_follows for all using (auth.uid() = follower_user_id) with check (auth.uid() = follower_user_id);
+  end if;
+
+  if not exists (select 1 from pg_policies where tablename = 'scheduled_meetings' and policyname = 'scheduled_meetings_read') then
+    create policy scheduled_meetings_read on public.scheduled_meetings for select using (true);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'scheduled_meetings' and policyname = 'scheduled_meetings_insert_update') then
+    create policy scheduled_meetings_insert_update on public.scheduled_meetings for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+  end if;
+
+  if not exists (select 1 from pg_policies where tablename = 'meeting_rsvps' and policyname = 'meeting_rsvps_read') then
+    create policy meeting_rsvps_read on public.meeting_rsvps for select using (true);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'meeting_rsvps' and policyname = 'meeting_rsvps_insert') then
+    create policy meeting_rsvps_insert on public.meeting_rsvps for insert with check (true);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'meeting_rsvps' and policyname = 'meeting_rsvps_update') then
+    create policy meeting_rsvps_update on public.meeting_rsvps for update using (auth.role() = 'authenticated');
   end if;
 end $$;
 

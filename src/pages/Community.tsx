@@ -1,9 +1,10 @@
-import { ComponentType, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { ComponentType, FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '../store/useAuthStore'
 import { useCommunityStore, MaterialType, CollaborationRole, PublicationVisibility } from '../store/useCommunityStore'
 import { useSchedulerStore } from '../store/useSchedulerStore'
 import { uploadPublicMaterialFile } from '../services/communityApi'
+import { fetchMeetingRsvpCounts, fetchMeetingRsvpsByEmail, upsertMeetingRsvp } from '../services/schedulerApi'
 import {
   Calendar,
   RefreshCw,
@@ -18,16 +19,21 @@ import {
   Lock,
   MessageSquarePlus,
   Mic,
+  Lightbulb,
   Plus,
   Presentation,
   Radio,
   Save,
+  ThumbsUp,
   Trash2,
   Unlock,
   Users,
   Video,
   MoreVertical,
   ChevronDown,
+  UserPlus,
+  UserCheck,
+  Bell,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -39,11 +45,65 @@ const materialTypeIcon: Record<MaterialType, ComponentType<{ className?: string 
   object: Layers,
   document: Calendar,
   project: Github,
-  demo: Video,
 }
 
 const collaborationRoles: CollaborationRole[] = ['viewer', 'commenter', 'editor']
-const materialTypes: MaterialType[] = ['recording', 'presentation', 'image', 'video', 'object', 'document', 'project', 'demo']
+const materialTypes: MaterialType[] = ['recording', 'presentation', 'image', 'video', 'object', 'document', 'project']
+const threadParticipantThemes = [
+  {
+    avatar: 'border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
+    bubble: 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-900/20 dark:text-sky-100',
+    meta: 'text-sky-700 dark:text-sky-300',
+    text: 'text-sky-900 dark:text-sky-100',
+  },
+  {
+    avatar: 'border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
+    bubble: 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-100',
+    meta: 'text-emerald-700 dark:text-emerald-300',
+    text: 'text-emerald-900 dark:text-emerald-100',
+  },
+  {
+    avatar: 'border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-700 dark:bg-violet-900/40 dark:text-violet-200',
+    bubble: 'border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-100',
+    meta: 'text-violet-700 dark:text-violet-300',
+    text: 'text-violet-900 dark:text-violet-100',
+  },
+  {
+    avatar: 'border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200',
+    bubble: 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100',
+    meta: 'text-amber-700 dark:text-amber-300',
+    text: 'text-amber-900 dark:text-amber-100',
+  },
+  {
+    avatar: 'border-rose-300 bg-rose-100 text-rose-800 dark:border-rose-700 dark:bg-rose-900/40 dark:text-rose-200',
+    bubble: 'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-100',
+    meta: 'text-rose-700 dark:text-rose-300',
+    text: 'text-rose-900 dark:text-rose-100',
+  },
+] as const
+const reactionStyleMap = {
+  like: {
+    label: 'Like',
+    Icon: Heart,
+    active: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-300',
+    idle: 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-gray-900 dark:text-emerald-300 dark:hover:bg-emerald-900/10',
+    iconClass: 'fill-current',
+  },
+  helpful: {
+    label: 'Helpful',
+    Icon: ThumbsUp,
+    active: 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700/60 dark:bg-sky-900/20 dark:text-sky-300',
+    idle: 'border-sky-200 bg-white text-sky-700 hover:bg-sky-50 dark:border-sky-800/60 dark:bg-gray-900 dark:text-sky-300 dark:hover:bg-sky-900/10',
+    iconClass: '',
+  },
+  insightful: {
+    label: 'Insightful',
+    Icon: Lightbulb,
+    active: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300',
+    idle: 'border-amber-200 bg-white text-amber-700 hover:bg-amber-50 dark:border-amber-800/60 dark:bg-gray-900 dark:text-amber-300 dark:hover:bg-amber-900/10',
+    iconClass: '',
+  },
+} as const
 
 const formatTime = (date: Date) =>
   new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(date))
@@ -55,6 +115,7 @@ export default function Community() {
     publicUsers,
     joinRequests,
     publicMaterials,
+    materialReactionEvents,
     collaborationInvites,
     communities,
     threads,
@@ -73,8 +134,11 @@ export default function Community() {
     createThread,
     addThreadMessage,
     upsertPublicUser,
+    toggleFollowUser,
+    followedUserIds,
   } = useCommunityStore()
-  const ONLINE_WINDOW_MS = 10 * 60 * 1000
+  const ONLINE_WINDOW_MS = 5 * 60 * 1000
+  const GUEST_RSVP_EMAIL_KEY = 'striim-guest-rsvp-email'
 
   const activeUsers = useMemo(
     () =>
@@ -87,12 +151,24 @@ export default function Community() {
     () => schedulerMeetings.filter((m) => m.isStarted && !m.isEnded).sort((a, b) => (b.actualStartTime || b.startTime).getTime() - (a.actualStartTime || a.startTime).getTime()),
     [schedulerMeetings],
   )
+  const visibleOngoingMeetings = useMemo(
+    () => ongoingMeetings.filter((meeting) => meeting.isPublicListing || isAuthenticated),
+    [ongoingMeetings, isAuthenticated],
+  )
+  const publicScheduledMeetings = useMemo(
+    () =>
+      schedulerMeetings
+        .filter((m) => m.isPublicListing && !m.isStarted && !m.isEnded && m.startTime > new Date())
+        .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+        .slice(0, 8),
+    [schedulerMeetings],
+  )
   const visiblePublicMaterials = useMemo(
     () => publicMaterials.filter((m) => m.isPublic || m.visibility === 'public'),
     [publicMaterials],
   )
   const myMaterials = useMemo(() => publicMaterials.filter((m) => !!user && m.ownerUserId === user.id), [publicMaterials, user])
-  const projectAndDemos = useMemo(() => publicMaterials.filter((m) => m.type === 'project' || m.type === 'demo'), [publicMaterials])
+  const projectMaterials = useMemo(() => publicMaterials.filter((m) => m.type === 'project'), [publicMaterials])
   const memberCommunityIds = useMemo(() => {
     if (!user) return new Set<string>()
     return new Set(
@@ -130,13 +206,16 @@ export default function Community() {
   const [joinName, setJoinName] = useState('')
   const [joinGithub, setJoinGithub] = useState('')
   const [joinInterest, setJoinInterest] = useState('')
+  const [guestRsvpEmail, setGuestRsvpEmail] = useState('')
+  const [myRsvpMeetingIds, setMyRsvpMeetingIds] = useState<string[]>([])
+  const [rsvpCounts, setRsvpCounts] = useState<Record<string, number>>({})
+  const [notifiedMeetingIds, setNotifiedMeetingIds] = useState<string[]>([])
 
   const [publishTitle, setPublishTitle] = useState('')
   const [publishDescription, setPublishDescription] = useState('')
   const [publishType, setPublishType] = useState<MaterialType>('recording')
   const [publishUrl, setPublishUrl] = useState('')
   const [publishGithubUrl, setPublishGithubUrl] = useState('')
-  const [publishDemoUrl, setPublishDemoUrl] = useState('')
   const [publishVisibility, setPublishVisibility] = useState<PublicationVisibility>('public')
   const [publishAfterInviteAccepted, setPublishAfterInviteAccepted] = useState(false)
   const [publishFile, setPublishFile] = useState<File | null>(null)
@@ -158,7 +237,6 @@ export default function Community() {
   const [threadCommunityId, setThreadCommunityId] = useState('')
   const [threadTitle, setThreadTitle] = useState('')
   const [threadTags, setThreadTags] = useState('')
-  const [threadBody, setThreadBody] = useState('')
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
   const [reactionPulseKey, setReactionPulseKey] = useState<string | null>(null)
   const [showDashboardMenu, setShowDashboardMenu] = useState(false)
@@ -167,11 +245,17 @@ export default function Community() {
   const [exploringCommunityId, setExploringCommunityId] = useState<string | null>(null)
   const [projectExplorerInput, setProjectExplorerInput] = useState('')
   const [exploringProjectId, setExploringProjectId] = useState<string | null>(null)
-  const [materialExplorerInput, setMaterialExplorerInput] = useState('')
   const [exploringMaterialId, setExploringMaterialId] = useState<string | null>(null)
-  const [threadExplorerInput, setThreadExplorerInput] = useState('')
+  const [showMaterialsMenu, setShowMaterialsMenu] = useState(false)
+  const [materialsPanelMode, setMaterialsPanelMode] = useState<'explore' | 'publish'>('explore')
   const [exploringThreadId, setExploringThreadId] = useState<string | null>(null)
+  const [showThreadsMenu, setShowThreadsMenu] = useState(false)
+  const [threadsPanelMode, setThreadsPanelMode] = useState<'explore' | 'post'>('explore')
+  const [threadSeenAt, setThreadSeenAt] = useState<Record<string, number>>({})
   const threadChatScrollRef = useRef<HTMLDivElement>(null)
+  const [activeCanvas, setActiveCanvas] = useState<
+    'dashboard-tools' | 'ongoing-meetings' | 'public-materials' | 'threaded-chats' | 'activity' | 'communities-projects'
+  >('dashboard-tools')
   const selectedThread = useMemo(
     () => recentThreads.find((t) => t.id === exploringThreadId) ?? recentThreads[0] ?? null,
     [recentThreads, exploringThreadId],
@@ -185,6 +269,38 @@ export default function Community() {
         : [],
     [threadMessages, selectedThread],
   )
+  const reactionTotals = useMemo(
+    () =>
+      visiblePublicMaterials.reduce(
+        (acc, material) => {
+          acc.like += material.reactions.like ?? 0
+          acc.helpful += material.reactions.helpful ?? 0
+          acc.insightful += material.reactions.insightful ?? 0
+          return acc
+        },
+        { like: 0, helpful: 0, insightful: 0 },
+      ),
+    [visiblePublicMaterials],
+  )
+  const recentReactionEvents = useMemo(
+    () => materialReactionEvents.slice(0, 12),
+    [materialReactionEvents],
+  )
+  const unreadByThread = useMemo(() => {
+    const latestByThread = new Map<string, number>()
+    threadMessages.forEach((msg) => {
+      const ts = new Date(msg.createdAt).getTime()
+      const current = latestByThread.get(msg.threadId) ?? 0
+      if (ts > current) latestByThread.set(msg.threadId, ts)
+    })
+    const unread = new Map<string, number>()
+    recentThreads.forEach((thread) => {
+      const latest = latestByThread.get(thread.id) ?? 0
+      const seen = threadSeenAt[thread.id] ?? 0
+      unread.set(thread.id, latest > seen ? 1 : 0)
+    })
+    return unread
+  }, [threadMessages, recentThreads, threadSeenAt])
 
   useEffect(() => {
     void initializeCommunity()
@@ -193,7 +309,7 @@ export default function Community() {
   useEffect(() => {
     const interval = window.setInterval(() => {
       void initializeCommunity()
-    }, 20000)
+    }, 10000)
     const onFocus = () => {
       void initializeCommunity()
     }
@@ -203,6 +319,50 @@ export default function Community() {
       window.removeEventListener('focus', onFocus)
     }
   }, [initializeCommunity])
+
+  useEffect(() => {
+    const cachedEmail = window.localStorage.getItem(GUEST_RSVP_EMAIL_KEY) || ''
+    setGuestRsvpEmail(cachedEmail)
+    const hydrate = async () => {
+      try {
+        const [counts, myRsvps] = await Promise.all([
+          fetchMeetingRsvpCounts(),
+          (user?.email || cachedEmail) ? fetchMeetingRsvpsByEmail((user?.email || cachedEmail) as string) : Promise.resolve([]),
+        ])
+        setRsvpCounts(counts)
+        setMyRsvpMeetingIds(myRsvps)
+      } catch {
+        // keep local fallback
+      }
+    }
+    void hydrate()
+  }, [user?.email])
+
+  useEffect(() => {
+    const interval = window.setInterval(async () => {
+      try {
+        const counts = await fetchMeetingRsvpCounts()
+        setRsvpCounts(counts)
+      } catch {
+        // ignore transient errors
+      }
+    }, 15000)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (!myRsvpMeetingIds.length) return
+    const startedRsvps = schedulerMeetings.filter((meeting) =>
+      myRsvpMeetingIds.includes(meeting.id) && meeting.isStarted && !meeting.isEnded,
+    )
+    if (!startedRsvps.length) return
+    const unseen = startedRsvps.filter((meeting) => !notifiedMeetingIds.includes(meeting.id))
+    if (!unseen.length) return
+    unseen.forEach((meeting) => {
+      toast.success(`RSVP alert: "${meeting.title}" just started`)
+    })
+    setNotifiedMeetingIds((prev) => [...prev, ...unseen.map((meeting) => meeting.id)])
+  }, [myRsvpMeetingIds, schedulerMeetings, notifiedMeetingIds])
 
   useEffect(() => {
     if (!user) return
@@ -223,7 +383,7 @@ export default function Community() {
     }
 
     syncPresence()
-    const interval = window.setInterval(syncPresence, 30000)
+    const interval = window.setInterval(syncPresence, 15000)
     const onFocus = () => syncPresence()
     window.addEventListener('focus', onFocus)
 
@@ -241,6 +401,28 @@ export default function Community() {
     })
     return () => window.cancelAnimationFrame(raf)
   }, [selectedThread?.id, selectedThreadMessages.length])
+
+  useEffect(() => {
+    if (activeCanvas !== 'threaded-chats') return
+    const threadId = selectedThread?.id
+    if (!threadId) return
+    const latestMessageTime = selectedThreadMessages[selectedThreadMessages.length - 1]
+      ? new Date(selectedThreadMessages[selectedThreadMessages.length - 1].createdAt).getTime()
+      : Date.now()
+    setThreadSeenAt((prev) => {
+      const current = prev[threadId] ?? 0
+      if (current >= latestMessageTime) return prev
+      return { ...prev, [threadId]: latestMessageTime }
+    })
+  }, [activeCanvas, selectedThread?.id, selectedThreadMessages])
+
+  useEffect(() => {
+    if (activeCanvas !== 'threaded-chats') return
+    const interval = window.setInterval(() => {
+      void initializeCommunity()
+    }, 8000)
+    return () => window.clearInterval(interval)
+  }, [activeCanvas, initializeCommunity])
 
   const openJoinRequest = (roomId: string) => {
     setRequestingRoomId(roomId)
@@ -268,8 +450,35 @@ export default function Community() {
       requesterGithub: joinGithub.trim(),
       interestDescription: joinInterest.trim(),
     })
-    toast.success('Join request submitted')
+    toast.success(isAuthenticated ? 'Join request submitted' : 'Join request submitted. Please log in before participating.')
     setRequestingRoomId(null)
+  }
+
+  const handleMeetingRsvp = async (meetingId: string) => {
+    const rsvpEmail = (user?.email || guestRsvpEmail || '').trim().toLowerCase()
+    if (!rsvpEmail) {
+      toast.error('Enter an email in your profile (or sign in) to RSVP')
+      return
+    }
+
+    try {
+      await upsertMeetingRsvp({
+        meetingId,
+        email: rsvpEmail,
+        userId: user?.id,
+        githubProfile: user?.githubProfile,
+        interestDescription: user?.interestDescription,
+      })
+      if (!user?.email) {
+        window.localStorage.setItem(GUEST_RSVP_EMAIL_KEY, rsvpEmail)
+      }
+      setGuestRsvpEmail(rsvpEmail)
+      setMyRsvpMeetingIds((prev) => (prev.includes(meetingId) ? prev : [...prev, meetingId]))
+      setRsvpCounts((prev) => ({ ...prev, [meetingId]: (prev[meetingId] ?? 0) + (myRsvpMeetingIds.includes(meetingId) ? 0 : 1) }))
+      toast.success('RSVP saved. You will be notified when it starts.')
+    } catch {
+      toast.error('Failed to RSVP right now')
+    }
   }
 
   const handlePublishMaterial = async (e: FormEvent) => {
@@ -291,29 +500,28 @@ export default function Community() {
     try {
       let materialUrl = publishUrl.trim()
       if (publishFile) {
-        const uploaded = await uploadPublicMaterialFile(publishFile, user.id)
+        const uploaded = await uploadPublicMaterialFile(publishFile, publishType, user.id)
         materialUrl = uploaded.publicUrl
       }
-      publishMaterial({
+      await publishMaterial({
         title: publishTitle.trim(),
         description: publishDescription.trim(),
         type: publishType,
         url: materialUrl,
         githubUrl: publishGithubUrl.trim() || undefined,
-        demoUrl: publishDemoUrl.trim() || undefined,
         ownerUserId: user.id,
         ownerName: user.name,
         isPublic: publishVisibility === 'public',
         visibility: publishVisibility,
         publishAfterInviteAccepted,
       })
+      await initializeCommunity()
       toast.success('Publication created')
       setPublishTitle('')
       setPublishDescription('')
       setPublishType('recording')
       setPublishUrl('')
       setPublishGithubUrl('')
-      setPublishDemoUrl('')
       setPublishVisibility('public')
       setPublishAfterInviteAccepted(false)
       setPublishFile(null)
@@ -394,8 +602,12 @@ export default function Community() {
 
   const handleCreateThread = (e: FormEvent) => {
     e.preventDefault()
-    if (!threadTitle.trim() || !threadBody.trim()) {
-      toast.error('Thread title and body are required')
+    if (!isAuthenticated || !user) {
+      toast.error('Log in to post threads')
+      return
+    }
+    if (!threadTitle.trim()) {
+      toast.error('Thread title is required')
       return
     }
     createThread({
@@ -406,23 +618,17 @@ export default function Community() {
       tags: threadTags.split(',').map((t) => t.trim()).filter(Boolean),
       isOpen: true,
     })
-    const newThread = useCommunityStore.getState().threads[0]
-    if (newThread) {
-      addThreadMessage({
-        threadId: newThread.id,
-        authorUserId: user?.id,
-        authorName: user?.name || 'Guest',
-        content: threadBody.trim(),
-      })
-    }
     toast.success('Thread posted')
     setThreadCommunityId('')
     setThreadTitle('')
     setThreadTags('')
-    setThreadBody('')
   }
 
   const handleReply = (threadId: string) => {
+    if (!isAuthenticated || !user) {
+      toast.error('Log in to post replies')
+      return
+    }
     const content = (replyDrafts[threadId] || '').trim()
     if (!content) return
     addThreadMessage({
@@ -435,9 +641,19 @@ export default function Community() {
     toast.success('Reply posted')
   }
 
+  const handleReplyKeyDown = (event: KeyboardEvent<HTMLInputElement>, threadId: string) => {
+    if (event.key !== 'Enter' || event.shiftKey) return
+    event.preventDefault()
+    handleReply(threadId)
+  }
+
   const handleMaterialReaction = (materialId: string, reaction: string, isAlreadySelected: boolean) => {
+    if (!isAuthenticated || !user) {
+      toast.error('Log in to react to materials')
+      return
+    }
     reactToMaterial(materialId, reaction, user?.id)
-    if (reaction === 'like' && !isAlreadySelected) {
+    if (!isAlreadySelected) {
       const key = `${materialId}:${reaction}:${Date.now()}`
       setReactionPulseKey(key)
       setTimeout(() => {
@@ -461,6 +677,12 @@ export default function Community() {
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() ?? '')
       .join('') || '?'
+
+  const getThreadParticipantTheme = (senderId?: string, senderName?: string) => {
+    const key = `${senderId || ''}:${senderName || ''}` || 'anonymous'
+    const hash = [...key].reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    return threadParticipantThemes[Math.abs(hash) % threadParticipantThemes.length]
+  }
 
   const executeCommunityExploreCommand = (raw: string) => {
     const value = raw.trim().toLowerCase()
@@ -507,15 +729,15 @@ export default function Community() {
     if (!value) return
     if (value === 'all' || value === 'list') {
       setExploringProjectId(null)
-      toast.success('Showing all projects and demos')
+      toast.success('Showing all projects')
       return
     }
 
     const numeric = Number(value)
     if (!Number.isNaN(numeric) && Number.isInteger(numeric)) {
-      const target = projectAndDemos[numeric - 1]
+      const target = projectMaterials[numeric - 1]
       if (!target) {
-        toast.error('Unknown project/demo number')
+        toast.error('Unknown project number')
         return
       }
       setExploringProjectId(target.id)
@@ -524,11 +746,11 @@ export default function Community() {
     }
 
     const normalized = value.replace(/^open\s+/, '')
-    const target = projectAndDemos.find((item) => item.title.toLowerCase() === normalized)
-      || projectAndDemos.find((item) => item.title.toLowerCase().includes(normalized))
+    const target = projectMaterials.find((item) => item.title.toLowerCase() === normalized)
+      || projectMaterials.find((item) => item.title.toLowerCase().includes(normalized))
 
     if (!target) {
-      toast.error('Project or demo not found')
+      toast.error('Project not found')
       return
     }
 
@@ -542,102 +764,90 @@ export default function Community() {
     setProjectExplorerInput('')
   }
 
-  const executeMaterialExploreCommand = (raw: string) => {
-    const value = raw.trim().toLowerCase()
-    if (!value) return
-    if (value === 'all' || value === 'list') {
-      setExploringMaterialId(null)
-      toast.success('Showing all public materials')
-      return
-    }
-    const n = Number(value)
-    if (!Number.isNaN(n) && Number.isInteger(n)) {
-      const target = visiblePublicMaterials[n - 1]
-      if (!target) return toast.error('Unknown material number')
-      setExploringMaterialId(target.id)
-      toast.success(`Exploring ${target.title}`)
-      return
-    }
-    if (value.startsWith('open ')) {
-      const term = value.replace(/^open\s+/, '')
-      const target = visiblePublicMaterials.find((m) => m.title.toLowerCase().includes(term))
-      if (!target) return toast.error('Material not found')
-      window.open(target.url, '_blank', 'noopener,noreferrer')
-      return
-    }
-    const target = visiblePublicMaterials.find((m) => m.title.toLowerCase().includes(value))
-    if (!target) return toast.error('Material not found')
-    setExploringMaterialId(target.id)
-    toast.success(`Exploring ${target.title}`)
+  const openCanvas = (id: 'dashboard-tools' | 'ongoing-meetings' | 'public-materials' | 'threaded-chats' | 'activity' | 'communities-projects') => {
+    setActiveCanvas(id)
   }
-
-  const handleMaterialExplorerSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    executeMaterialExploreCommand(materialExplorerInput)
-    setMaterialExplorerInput('')
-  }
-
-  const executeThreadExploreCommand = (raw: string) => {
-    const value = raw.trim().toLowerCase()
-    if (!value) return
-    if (value === 'all' || value === 'list') {
-      setExploringThreadId(null)
-      toast.success('Showing all visible threads')
-      return
-    }
-    if (value === 'refresh') {
-      void initializeCommunity()
-      toast.success('Refreshing threads')
-      return
-    }
-    const n = Number(value)
-    if (!Number.isNaN(n) && Number.isInteger(n)) {
-      const target = recentThreads[n - 1]
-      if (!target) return toast.error('Unknown thread number')
-      setExploringThreadId(target.id)
-      toast.success(`Exploring ${target.title}`)
-      return
-    }
-    const normalized = value.replace(/^open\s+/, '')
-    const target = recentThreads.find((t) => t.title.toLowerCase().includes(normalized))
-    if (!target) return toast.error('Thread not found')
-    setExploringThreadId(target.id)
-    toast.success(`Exploring ${target.title}`)
-  }
-
-  const handleThreadExplorerSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    executeThreadExploreCommand(threadExplorerInput)
-    setThreadExplorerInput('')
+  const openDashboardTool = (panel: 'active-users' | 'publish' | 'manage' | 'invite' | 'community') => {
+    setDashboardPanel(panel)
+    setShowDashboardMenu(false)
+    setActiveCanvas('dashboard-tools')
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-xl border border-[#9d9a90] bg-[#ece8de] text-gray-900 shadow-[0_1px_0_#fff_inset,0_10px_24px_rgba(0,0,0,0.09)] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+        <div className="flex items-center justify-between border-b border-[#b4b0a5] bg-[#f3efe4] px-3 py-1.5 text-[13px] dark:border-gray-700 dark:bg-gray-950">
+          <div className="flex items-center gap-3">
+            <span className="font-semibold tracking-tight">Community OS</span>
+            <button onClick={() => openCanvas('dashboard-tools')} className="text-[12px] text-gray-700 hover:underline dark:text-gray-300">Tools</button>
+            <button onClick={() => openCanvas('public-materials')} className="text-[12px] text-gray-700 hover:underline dark:text-gray-300">Materials</button>
+            <button onClick={() => openCanvas('threaded-chats')} className="text-[12px] text-gray-700 hover:underline dark:text-gray-300">Threads</button>
+            <button onClick={() => openCanvas('communities-projects')} className="text-[12px] text-gray-700 hover:underline dark:text-gray-300">Directories</button>
+          </div>
+          <span className="rounded border border-amber-500 bg-amber-300 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">retro mode</span>
+        </div>
+
+        <div className="relative grid grid-cols-1 gap-3 bg-[radial-gradient(circle_at_1px_1px,#d5d0c3_1px,transparent_1px)] [background-size:6px_6px] p-2 md:grid-cols-[70px_minmax(0,1fr)_70px] dark:bg-none">
+          <aside className="hidden md:flex md:flex-col md:items-center md:gap-3">
+            <button onClick={() => openCanvas('dashboard-tools')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <Users className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Tools</span>
+            </button>
+            <button onClick={() => openDashboardTool('active-users')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <Users className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Users</span>
+            </button>
+            <button onClick={() => openDashboardTool('publish')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <Plus className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Publish</span>
+            </button>
+            <button onClick={() => openCanvas('ongoing-meetings')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <Calendar className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Meetings</span>
+            </button>
+            <button onClick={() => openCanvas('threaded-chats')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <MessageSquarePlus className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Threads</span>
+            </button>
+          </aside>
+
+          <div className="min-w-0 overflow-hidden rounded-md border border-[#8f8b80] bg-[#d8d6ce] shadow-[0_1px_0_#ffffff8a_inset] dark:border-gray-700 dark:bg-gray-950">
+            <div className="flex items-center justify-between border-b border-[#8f8b80] bg-[#c8c6be] px-3 py-1.5 text-[13px] font-medium dark:border-gray-700 dark:bg-gray-900">
+              <span>Community suite</span>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="h-2.5 w-2.5 rounded-sm border border-gray-700 dark:border-gray-400" />
+                <span className="h-2.5 w-2.5 rounded-sm border border-gray-700 dark:border-gray-400" />
+                <span className="h-2.5 w-2.5 rounded-sm border border-gray-700 dark:border-gray-400" />
+              </div>
+            </div>
+
+            <div className="max-h-[calc(100vh-11.5rem)] overflow-y-auto p-3 space-y-4">
+      <section id="community-home" className="rounded-md border border-[#b4b0a5] bg-[#f4f3ed] p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Community</h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Live meetings, public materials, communities, threaded chats, and project demos.</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Live meetings, public materials, communities, threaded chats, and projects.</p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <Radio className="h-4 w-4" />
-            {ongoingMeetings.length} live meetings · {activeUsers.length} active users
+            {visibleOngoingMeetings.length} live meetings · {activeUsers.length} active users
           </div>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <section className="space-y-6">
-          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="grid grid-cols-1 gap-6">
+        <section className="order-2 space-y-6">
+          {activeCanvas === 'ongoing-meetings' && (
+          <div id="ongoing-meetings" className="rounded-md border border-[#b4b0a5] bg-[#f4f3ed] p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">Ongoing meetings</h2>
               <span className="text-xs text-gray-500 dark:text-gray-400">Guests can request access</span>
             </div>
-            {ongoingMeetings.length === 0 ? (
+            {visibleOngoingMeetings.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 p-5 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">No meetings are live right now.</div>
             ) : (
               <div className="space-y-3">
-                {ongoingMeetings.map((meeting) => (
+                {visibleOngoingMeetings.map((meeting) => (
                   <div key={meeting.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -658,51 +868,150 @@ export default function Community() {
                 ))}
               </div>
             )}
+            {publicScheduledMeetings.length > 0 && (
+              <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-800">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">Public scheduled calls</p>
+                {!isAuthenticated && (
+                  <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">RSVP email (for start notifications)</label>
+                    <input
+                      value={guestRsvpEmail}
+                      onChange={(e) => setGuestRsvpEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900"
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {publicScheduledMeetings.map((meeting) => (
+                    <div key={meeting.id} className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{meeting.title}</p>
+                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            {meeting.type} · {formatTime(meeting.startTime)} · Host: {meeting.hostName}
+                          </p>
+                          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{rsvpCounts[meeting.id] ?? 0} RSVPs</p>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <button onClick={() => openJoinRequest(meeting.roomId)} className="rounded-lg border border-gray-900 bg-gray-900 px-3 py-1.5 text-xs font-medium text-white dark:border-white dark:bg-white dark:text-gray-900">
+                            Request to join
+                          </button>
+                          <button
+                            onClick={() => void handleMeetingRsvp(meeting.id)}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                          >
+                            <Bell className="h-3.5 w-3.5" />
+                            {myRsvpMeetingIds.includes(meeting.id) ? 'RSVP saved' : 'RSVP'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+          )}
 
-          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          {activeCanvas === 'public-materials' && (
+          <div id="public-materials" className="rounded-md border border-[#b4b0a5] bg-[#f4f3ed] p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">Public materials</h2>
-              <span className="text-xs text-gray-500 dark:text-gray-400">React, open, and explore</span>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowMaterialsMenu((v) => !v)}
+                  className="menu-trigger text-xs"
+                >
+                  <span>{materialsPanelMode === 'explore' ? 'Explore' : 'Publish'}</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                {showMaterialsMenu && (
+                  <div className="dropdown-panel absolute right-0 top-full z-20 mt-2 w-40">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMaterialsPanelMode('explore')
+                        setShowMaterialsMenu(false)
+                      }}
+                      className={`dropdown-item ${materialsPanelMode === 'explore' ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+                    >
+                      Explore materials
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMaterialsPanelMode('publish')
+                        setShowMaterialsMenu(false)
+                      }}
+                      className={`dropdown-item ${materialsPanelMode === 'publish' ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+                    >
+                      Publish material
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-950">
-              <div className="mb-2 text-[11px] font-mono text-gray-500 dark:text-gray-400">material.explorer</div>
-              <div className="rounded-xl border border-gray-200 bg-white p-2 font-mono text-xs dark:border-gray-800 dark:bg-gray-900">
+            {materialsPanelMode === 'publish' && (
+              <form onSubmit={handlePublishMaterial} className="mb-4 space-y-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-950">
+                <input value={publishTitle} onChange={(e) => setPublishTitle(e.target.value)} placeholder="Title" className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
+                <input value={publishUrl} onChange={(e) => setPublishUrl(e.target.value)} placeholder="Public URL (optional if uploading a file)" className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
+                <label className="block rounded-xl border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                  <span className="mb-1 block text-xs text-gray-500 dark:text-gray-400">Upload file to Supabase Storage (optional)</span>
+                  <input type="file" onChange={(e) => setPublishFile(e.target.files?.[0] ?? null)} className="block w-full text-sm" accept="image/*,video/*,.pdf,.ppt,.pptx,.doc,.docx,.txt,.md,.zip" />
+                  {publishFile && <span className="mt-2 block text-xs text-gray-500 dark:text-gray-400">Selected: {publishFile.name}</span>}
+                </label>
+                <select value={publishType} onChange={(e) => setPublishType(e.target.value as MaterialType)} className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
+                  {materialTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+                {publishType === 'project' && (
+                  <>
+                    <input value={publishGithubUrl} onChange={(e) => setPublishGithubUrl(e.target.value)} placeholder="GitHub repo URL" className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
+                  </>
+                )}
+                <select value={publishVisibility} onChange={(e) => setPublishVisibility(e.target.value as PublicationVisibility)} className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                  <option value="invite-gated">Private until collaborator accepts invite</option>
+                </select>
+                <label className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                  <input type="checkbox" checked={publishAfterInviteAccepted} onChange={(e) => setPublishAfterInviteAccepted(e.target.checked)} />
+                  Auto-publish after invite acceptance
+                </label>
+                <textarea value={publishDescription} onChange={(e) => setPublishDescription(e.target.value)} rows={3} placeholder="Description" className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
+                <button type="submit" disabled={isPublishing} className="rounded-xl border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:border-white dark:bg-white dark:text-gray-900">{isPublishing ? 'Publishing...' : 'Publish'}</button>
+              </form>
+            )}
+            {materialsPanelMode === 'explore' && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[240px_minmax(0,1fr)]">
+              <div className="rounded-xl border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-900">
+                <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">Published</p>
                 {visiblePublicMaterials.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-gray-200 p-3 text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                  <div className="rounded-md border border-dashed border-gray-200 p-3 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300">
                     No public materials yet.
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    {visiblePublicMaterials.map((material, index) => (
-                      <button
-                        key={material.id}
-                        type="button"
-                        onClick={() => setExploringMaterialId(material.id)}
-                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${
-                          exploringMaterialId === material.id ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800/70'
-                        }`}
-                      >
-                        <span className="w-6 text-emerald-600 dark:text-emerald-400">{index + 1}.</span>
-                        <span className="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-100">{material.title}</span>
-                        <span className="text-[11px] text-gray-500 dark:text-gray-400">{material.type}</span>
-                      </button>
-                    ))}
+                  <div className="max-h-[28rem] space-y-1 overflow-y-auto pr-1">
+                    {visiblePublicMaterials.map((material) => {
+                      const selected = exploringMaterialId === material.id || (!exploringMaterialId && visiblePublicMaterials[0]?.id === material.id)
+                      return (
+                        <button
+                          key={material.id}
+                          type="button"
+                          onClick={() => setExploringMaterialId(material.id)}
+                          className={`w-full rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                            selected
+                              ? 'border-gray-300 bg-gray-100 dark:border-gray-600 dark:bg-gray-800'
+                              : 'border-transparent hover:border-gray-200 hover:bg-gray-50 dark:hover:border-gray-700 dark:hover:bg-gray-800/70'
+                          }`}
+                        >
+                          <p className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">{material.title}</p>
+                          <p className="mt-0.5 text-[11px] capitalize text-gray-500 dark:text-gray-400">{material.type}</p>
+                        </button>
+                      )
+                    })}
                   </div>
-                )}
-                {visiblePublicMaterials.length > 0 && (
-                  <form onSubmit={handleMaterialExplorerSubmit} className="mt-2 border-t border-gray-200 pt-2 dark:border-gray-800">
-                    <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800">
-                      <span className="text-emerald-600 dark:text-emerald-400">$</span>
-                      <input
-                        value={materialExplorerInput}
-                        onChange={(e) => setMaterialExplorerInput(e.target.value)}
-                        placeholder="1 | open <title> | all"
-                        className="min-w-0 flex-1 bg-transparent text-xs text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
-                      />
-                      <button type="submit" className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200">run</button>
-                    </div>
-                  </form>
                 )}
               </div>
               {(() => {
@@ -710,7 +1019,7 @@ export default function Community() {
                 if (!material) return null
                 const Icon = materialTypeIcon[material.type]
                 return (
-                  <div className="mt-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+                  <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
                     <div className="flex items-center gap-2">
                       <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1.5 text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
                         <Icon className="h-4 w-4" />
@@ -732,14 +1041,10 @@ export default function Community() {
                           <Github className="h-3.5 w-3.5" /> GitHub
                         </a>
                       )}
-                      {material.demoUrl && (
-                        <a href={material.demoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
-                          <Video className="h-3.5 w-3.5" /> Demo
-                        </a>
-                      )}
-                      {['like', 'helpful', 'insightful'].map((reaction) => {
+                      {(['like', 'helpful', 'insightful'] as const).map((reaction) => {
+                        const styles = reactionStyleMap[reaction]
+                        const ReactionIcon = styles.Icon
                         const selected = !!material.myReactions?.includes(reaction)
-                        const isLike = reaction === 'like'
                         return (
                           <motion.button
                             key={reaction}
@@ -747,24 +1052,18 @@ export default function Community() {
                             onClick={() => handleMaterialReaction(material.id, reaction, selected)}
                             whileTap={{ scale: 0.96 }}
                             animate={
-                              isLike && reactionPulseKey?.startsWith(`${material.id}:${reaction}:`)
+                              reactionPulseKey?.startsWith(`${material.id}:${reaction}:`)
                                 ? { scale: [1, 1.08, 0.98, 1.04, 1], opacity: [1, 0.92, 1] }
                                 : undefined
                             }
                             transition={{ duration: 0.42, ease: 'easeOut' }}
                             className={[
                               'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition-colors',
-                              isLike
-                                ? selected
-                                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-300'
-                                  : 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800/60 dark:bg-gray-900 dark:text-emerald-300 dark:hover:bg-emerald-900/10'
-                                : selected
-                                  ? 'border-gray-300 bg-gray-100 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white'
-                                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800',
+                              selected ? styles.active : styles.idle,
                             ].join(' ')}
                           >
-                            <Heart className={`h-3.5 w-3.5 ${isLike && selected ? 'fill-current' : ''}`} />
-                            {reaction} ({material.reactions[reaction] ?? 0})
+                            <ReactionIcon className={`h-3.5 w-3.5 ${styles.iconClass && selected ? styles.iconClass : ''}`} />
+                            {styles.label} ({material.reactions[reaction] ?? 0})
                           </motion.button>
                         )
                       })}
@@ -773,22 +1072,60 @@ export default function Community() {
                 )
               })()}
             </div>
+            )}
           </div>
+          )}
 
-          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          {activeCanvas === 'threaded-chats' && (
+          <div id="threaded-chats" className="rounded-md border border-[#b4b0a5] bg-[#f4f3ed] p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-4 flex items-center gap-2">
               <MessageSquarePlus className="h-4 w-4 text-gray-500" />
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">Threaded chats</h2>
+              <div className="relative ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowThreadsMenu((v) => !v)}
+                  className="menu-trigger text-xs"
+                >
+                  <span>{threadsPanelMode === 'explore' ? 'Explore' : 'Post thread'}</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                {showThreadsMenu && (
+                  <div className="dropdown-panel absolute right-0 top-full z-20 mt-2 w-40">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setThreadsPanelMode('explore')
+                        setShowThreadsMenu(false)
+                      }}
+                      className={`dropdown-item ${threadsPanelMode === 'explore' ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+                    >
+                      Explore threads
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setThreadsPanelMode('post')
+                        setShowThreadsMenu(false)
+                      }}
+                      className={`dropdown-item ${threadsPanelMode === 'post' ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+                    >
+                      Post thread
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => void initializeCommunity()}
-                className="ml-auto btn-compact text-xs"
+                className="btn-compact text-xs"
                 title="Refresh latest replies"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Refresh
               </button>
             </div>
+            {threadsPanelMode === 'post' && (
             <form onSubmit={handleCreateThread} className="mb-4 space-y-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-950">
               <select value={threadCommunityId} onChange={(e) => setThreadCommunityId(e.target.value)} className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
                 <option value="">General (no community)</option>
@@ -801,57 +1138,57 @@ export default function Community() {
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Default publish target is <span className="font-medium">General</span>. Community chats are visible to members of that community.
               </p>
-              <input value={threadTitle} onChange={(e) => setThreadTitle(e.target.value)} placeholder="Thread title" className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
-              <input value={threadTags} onChange={(e) => setThreadTags(e.target.value)} placeholder="Tags (comma-separated)" className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
-              <textarea value={threadBody} onChange={(e) => setThreadBody(e.target.value)} rows={3} placeholder="Start the discussion..." className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
-              <button type="submit" className="rounded-xl border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white dark:border-white dark:bg-white dark:text-gray-900">Post thread</button>
+              <input disabled={!isAuthenticated} value={threadTitle} onChange={(e) => setThreadTitle(e.target.value)} placeholder={isAuthenticated ? 'Thread title' : 'Log in to post threads'} className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
+              <input disabled={!isAuthenticated} value={threadTags} onChange={(e) => setThreadTags(e.target.value)} placeholder="Tags (comma-separated)" className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
+              <p className="text-xs text-gray-500 dark:text-gray-400">Create thread first. Only replies appear as chat messages.</p>
+              <button disabled={!isAuthenticated} type="submit" className="rounded-xl border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:border-white dark:bg-white dark:text-gray-900">Post thread</button>
             </form>
+            )}
 
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-950">
-              <div className="mb-2 text-[11px] font-mono text-gray-500 dark:text-gray-400">thread.explorer</div>
-              <div className="rounded-xl border border-gray-200 bg-white p-2 font-mono text-xs dark:border-gray-800 dark:bg-gray-900">
+            {threadsPanelMode === 'explore' && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[240px_minmax(0,1fr)]">
+              <div className="rounded-xl border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-900">
+                <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">Threads</p>
                 {recentThreads.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-gray-200 p-3 text-gray-600 dark:border-gray-700 dark:text-gray-300">No threads yet.</div>
+                  <div className="rounded-md border border-dashed border-gray-200 p-3 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                    No threads yet.
+                  </div>
                 ) : (
-                  <div className="space-y-1">
-                    {recentThreads.map((thread, index) => (
-                      <button
-                        key={thread.id}
-                        type="button"
-                        onClick={() => setExploringThreadId(thread.id)}
-                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${
-                          exploringThreadId === thread.id ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800/70'
-                        }`}
-                      >
-                        <span className="w-6 text-emerald-600 dark:text-emerald-400">{index + 1}.</span>
-                        <span className="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-100">{thread.title}</span>
-                        <span className="text-[11px] text-gray-500 dark:text-gray-400">{thread.communityId ? 'community' : 'general'}</span>
-                      </button>
-                    ))}
+                  <div className="max-h-[30rem] space-y-1 overflow-y-auto pr-1">
+                    {recentThreads.map((thread) => {
+                      const selected = exploringThreadId === thread.id || (!exploringThreadId && recentThreads[0]?.id === thread.id)
+                      return (
+                        <button
+                          key={thread.id}
+                          type="button"
+                          onClick={() => setExploringThreadId(thread.id)}
+                          className={`w-full rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                            selected
+                              ? 'border-gray-300 bg-gray-100 dark:border-gray-600 dark:bg-gray-800'
+                              : 'border-transparent hover:border-gray-200 hover:bg-gray-50 dark:hover:border-gray-700 dark:hover:bg-gray-800/70'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <p className="min-w-0 flex-1 truncate text-xs font-medium text-gray-900 dark:text-gray-100">{thread.title}</p>
+                            {(unreadByThread.get(thread.id) ?? 0) > 0 && (
+                              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                new
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{thread.communityId ? 'community' : 'general'}</p>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
-                {recentThreads.length > 0 && (
-                  <form onSubmit={handleThreadExplorerSubmit} className="mt-2 border-t border-gray-200 pt-2 dark:border-gray-800">
-                    <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800">
-                      <span className="text-emerald-600 dark:text-emerald-400">$</span>
-                      <input
-                        value={threadExplorerInput}
-                        onChange={(e) => setThreadExplorerInput(e.target.value)}
-                        placeholder="1 | open <title> | refresh | all"
-                        className="min-w-0 flex-1 bg-transparent text-xs text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
-                      />
-                      <button type="submit" className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200">run</button>
-                    </div>
-                  </form>
-                )}
               </div>
-
               {(() => {
                 const thread = selectedThread
                 if (!thread) return null
                 const messages = selectedThreadMessages
                 return (
-                  <div className="mt-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+                  <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">{thread.title}</p>
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       by {thread.authorName}
@@ -871,6 +1208,7 @@ export default function Community() {
                         {messages.slice(-20).map((msg, index, list) => {
                           const github = formatGithubLabel(getThreadAuthorGithub(msg.authorUserId))
                           const isMine = !!user && msg.authorUserId === user.id
+                          const theme = getThreadParticipantTheme(msg.authorUserId, msg.authorName)
                           const previous = list[index - 1]
                           const sameAsPrevious =
                             !!previous &&
@@ -883,18 +1221,14 @@ export default function Community() {
                               className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${msg.parentMessageId ? 'pl-4' : ''} ${sameAsPrevious ? 'mt-1' : 'mt-2'}`}
                             >
                               <div className={`flex max-w-[94%] items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
-                                <div className={`h-6 w-6 shrink-0 rounded-full border text-[10px] font-semibold ${showMeta ? 'opacity-100' : 'opacity-0'} ${isMine ? 'border-gray-300 bg-white text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200' : 'border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'} flex items-center justify-center`}>
+                                <div className={`h-6 w-6 shrink-0 rounded-full border text-[10px] font-semibold ${showMeta ? 'opacity-100' : 'opacity-0'} ${theme.avatar} flex items-center justify-center`}>
                                   {getInitials(msg.authorName)}
                                 </div>
                                 <div
-                                  className={`max-w-[88%] rounded-2xl border px-3 py-2 text-sm ${
-                                    isMine
-                                      ? 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900'
-                                      : 'border-gray-200 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white'
-                                  }`}
+                                  className={`max-w-[88%] rounded-2xl border px-3 py-2 text-sm ${theme.bubble} ${isMine ? 'ring-1 ring-gray-300 dark:ring-gray-600' : ''}`}
                                 >
                                   {showMeta && (
-                                    <div className={`mb-1 flex flex-wrap items-center gap-2 text-xs ${isMine ? 'text-white/75 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    <div className={`mb-1 flex flex-wrap items-center gap-2 text-xs ${theme.meta}`}>
                                       <span className="font-medium">{msg.authorName}</span>
                                       {github && (
                                         <span className="inline-flex items-center gap-1">
@@ -906,7 +1240,7 @@ export default function Community() {
                                       {msg.parentMessageId && <span className="rounded-full border px-1.5 py-0.5 text-[10px]">reply</span>}
                                     </div>
                                   )}
-                                  <p className={`${isMine ? 'text-white dark:text-gray-900' : 'text-gray-700 dark:text-gray-300'}`}>{msg.content}</p>
+                                  <p className={theme.text}>{msg.content}</p>
                                 </div>
                               </div>
                             </div>
@@ -915,18 +1249,28 @@ export default function Community() {
                       </div>
                     </div>
                     <div className="mt-3 flex gap-2">
-                      <input value={replyDrafts[thread.id] || ''} onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [thread.id]: e.target.value }))} placeholder="Reply to thread..." className="flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
-                      <button onClick={() => handleReply(thread.id)} className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">Reply</button>
+                      <input
+                        value={replyDrafts[thread.id] || ''}
+                        onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [thread.id]: e.target.value }))}
+                        onKeyDown={(e) => handleReplyKeyDown(e, thread.id)}
+                        placeholder={isAuthenticated ? 'Reply to thread... (Enter to send)' : 'Log in to reply'}
+                        disabled={!isAuthenticated}
+                        className="flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                      />
+                      <button disabled={!isAuthenticated} onClick={() => handleReply(thread.id)} className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">Reply</button>
                     </div>
                   </div>
                 )
               })()}
             </div>
+            )}
           </div>
+          )}
         </section>
 
-        <section className="space-y-6">
-          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <section className="order-1 space-y-6">
+          {activeCanvas === 'dashboard-tools' && (
+          <div id="dashboard-tools" className="rounded-md border border-[#b4b0a5] bg-[#f4f3ed] p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">Dashboard tools</h2>
@@ -995,10 +1339,22 @@ export default function Community() {
                     <div key={activeUser.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{activeUser.name}</p>
-                        <span className={`inline-flex items-center gap-1 text-[11px] ${activeUser.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${activeUser.isActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                          {activeUser.isActive ? 'online' : 'recent'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 text-[11px] ${activeUser.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${activeUser.isActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                            {activeUser.isActive ? 'online' : 'recent'}
+                          </span>
+                          {isAuthenticated && user && activeUser.id !== user.id && (
+                            <button
+                              type="button"
+                              onClick={() => toggleFollowUser(activeUser.id)}
+                              className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                            >
+                              {followedUserIds.includes(activeUser.id) ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
+                              {followedUserIds.includes(activeUser.id) ? 'Following' : 'Follow'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {activeUser.githubProfile && <a href={activeUser.githubProfile.startsWith('http') ? activeUser.githubProfile : `https://github.com/${activeUser.githubProfile.replace(/^@/, '')}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400"><Github className="h-3.5 w-3.5" />{activeUser.githubProfile}</a>}
                       {activeUser.bio && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{activeUser.bio}</p>}
@@ -1009,10 +1365,10 @@ export default function Community() {
                 <div>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">Live calls</p>
                   <div className="space-y-2">
-                    {ongoingMeetings.length === 0 ? (
+                    {visibleOngoingMeetings.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">No calls are live right now.</div>
                     ) : (
-                      ongoingMeetings.map((meeting) => (
+                      visibleOngoingMeetings.map((meeting) => (
                         <div key={meeting.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{meeting.title}</p>
                           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{meeting.type} · {meeting.currentAttendees}/{meeting.attendeeLimit} attendees</p>
@@ -1037,10 +1393,9 @@ export default function Community() {
                 <select value={publishType} onChange={(e) => setPublishType(e.target.value as MaterialType)} className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
                   {materialTypes.map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
-                {(publishType === 'project' || publishType === 'demo') && (
+                {publishType === 'project' && (
                   <>
                     <input value={publishGithubUrl} onChange={(e) => setPublishGithubUrl(e.target.value)} placeholder="GitHub repo URL" className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
-                    <input value={publishDemoUrl} onChange={(e) => setPublishDemoUrl(e.target.value)} placeholder="Demo URL (optional)" className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
                   </>
                 )}
                 <select value={publishVisibility} onChange={(e) => setPublishVisibility(e.target.value as PublicationVisibility)} className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
@@ -1123,11 +1478,13 @@ export default function Community() {
               </form>
             )}
           </div>
+          )}
         </section>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        {activeCanvas === 'activity' && (
+        <section id="activity" className="rounded-md border border-[#b4b0a5] bg-[#f4f3ed] p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <h2 className="mb-4 text-base font-semibold text-gray-900 dark:text-white">Activity</h2>
           <div className="space-y-4">
             <div>
@@ -1163,10 +1520,50 @@ export default function Community() {
                 {collaborationInvites.length === 0 && <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">No collaboration invites yet.</div>}
               </div>
             </div>
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">Reaction analytics</p>
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+                <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-900/20 dark:text-emerald-300">
+                    <Heart className="h-3 w-3" /> Like {reactionTotals.like}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-sky-700 dark:border-sky-800/70 dark:bg-sky-900/20 dark:text-sky-300">
+                    <ThumbsUp className="h-3 w-3" /> Helpful {reactionTotals.helpful}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700 dark:border-amber-800/70 dark:bg-amber-900/20 dark:text-amber-300">
+                    <Lightbulb className="h-3 w-3" /> Insightful {reactionTotals.insightful}
+                  </span>
+                </div>
+                {recentReactionEvents.length > 0 ? (
+                  <div className="space-y-2">
+                    {recentReactionEvents.map((event) => {
+                      const actor = event.actorUserId ? publicUsers.find((entry) => entry.id === event.actorUserId) : undefined
+                      const material = publicMaterials.find((entry) => entry.id === event.materialId)
+                      const actionLabel = event.action === 'add' ? 'added' : 'removed'
+                      return (
+                        <div key={event.id} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-900">
+                          <span className="font-medium text-gray-900 dark:text-white">{actor?.name || 'Guest'}</span>{' '}
+                          <span className="text-gray-600 dark:text-gray-300">{actionLabel} {event.reaction}</span>{' '}
+                          <span className="text-gray-500 dark:text-gray-400">on {material?.title || 'material'}</span>
+                          <div className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{formatTime(event.createdAt)}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-gray-200 p-3 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                    No reaction events yet.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </section>
+        )}
 
-        <section className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        {activeCanvas === 'communities-projects' && (
+        <section id="communities-projects" className="rounded-md border border-[#b4b0a5] bg-[#f4f3ed] p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <h2 className="mb-4 text-base font-semibold text-gray-900 dark:text-white">Communities & Projects</h2>
           <div className="space-y-4">
             <div>
@@ -1267,7 +1664,7 @@ export default function Community() {
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">Projects & demos</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">Projects</p>
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-950">
                 <div className="mb-2 flex items-center justify-between text-[11px] font-mono text-gray-500 dark:text-gray-400">
                   <span>project.explorer</span>
@@ -1284,13 +1681,13 @@ export default function Community() {
                 </div>
 
                 <div className="rounded-lg border border-gray-200 bg-white p-2 font-mono text-xs dark:border-gray-800 dark:bg-gray-900">
-                  {projectAndDemos.length === 0 ? (
+                  {projectMaterials.length === 0 ? (
                     <div className="rounded-md border border-dashed border-gray-200 p-3 text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                      No project or demo posts yet.
+                      No project posts yet.
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      {projectAndDemos.map((item, index) => (
+                      {projectMaterials.map((item, index) => (
                         <button
                           key={item.id}
                           type="button"
@@ -1307,7 +1704,7 @@ export default function Community() {
                     </div>
                   )}
 
-                  {projectAndDemos.length > 0 && (
+                  {projectMaterials.length > 0 && (
                     <form onSubmit={handleProjectExplorerSubmit} className="mt-2 border-t border-gray-200 pt-2 dark:border-gray-800">
                       <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800">
                         <span className="text-emerald-600 dark:text-emerald-400">$</span>
@@ -1326,11 +1723,11 @@ export default function Community() {
                 </div>
 
                 {(() => {
-                  const selected = projectAndDemos.find((item) => item.id === exploringProjectId)
+                  const selected = projectMaterials.find((item) => item.id === exploringProjectId)
                   if (!selected) {
                     return (
                       <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Type a number or `open project-name` to inspect a project/demo. `all` returns to the full list.
+                        Type a number or `open project-name` to inspect a project. `all` returns to the full list.
                       </p>
                     )
                   }
@@ -1343,7 +1740,6 @@ export default function Community() {
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {selected.githubUrl && <a href={selected.githubUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"><Github className="h-3 w-3" />GitHub</a>}
-                        {selected.demoUrl && <a href={selected.demoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"><Video className="h-3 w-3" />Demo</a>}
                         <a href={selected.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"><ExternalLink className="h-3 w-3" />Open</a>
                       </div>
                     </div>
@@ -1359,6 +1755,38 @@ export default function Community() {
             )}
           </div>
         </section>
+        )}
+            </div>
+          </div>
+          </div>
+
+          <aside className="hidden md:flex md:flex-col md:items-center md:gap-3">
+            <button onClick={() => openCanvas('public-materials')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <FolderPlus className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Directory</span>
+            </button>
+            <button onClick={() => openCanvas('activity')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <Radio className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Activity</span>
+            </button>
+            <button onClick={() => openCanvas('communities-projects')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <ExternalLink className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Explore</span>
+            </button>
+            <button onClick={() => openDashboardTool('manage')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <Edit3 className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Manage</span>
+            </button>
+            <button onClick={() => openDashboardTool('invite')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <MessageSquarePlus className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Invite</span>
+            </button>
+            <button onClick={() => openDashboardTool('community')} className="group flex w-full flex-col items-center rounded-md border border-transparent px-1 py-1.5 hover:border-[#b8b4a9] hover:bg-white/70 dark:hover:border-gray-700 dark:hover:bg-gray-800/60">
+              <FolderPlus className="h-5 w-5" />
+              <span className="mt-1 text-center text-[10px]">Create</span>
+            </button>
+          </aside>
+        </div>
       </div>
 
       {requestingRoomId && (

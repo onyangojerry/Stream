@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useVideoStore } from '../store/useVideoStore'
+import { useRecordingStore } from '../store/useRecordingStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSchedulerStore } from '../store/useSchedulerStore'
+import { useCallSessionStore } from '../store/useCallSessionStore'
 import VideoGrid from '../components/VideoGrid'
 import ChatPanel from '../components/ChatPanel'
 import TranscriptionPanel from '../components/TranscriptionPanel'
@@ -13,18 +15,33 @@ import CollaborativeDocument from '../components/CollaborativeDocument'
 import MeetingJoinRequestsPanel from '../components/MeetingJoinRequestsPanel'
 import ControlButton from '../components/ControlButton'
 import CallDashboard from '../components/CallDashboard'
-import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users } from 'lucide-react'
+import { PhoneOff, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, MessageSquare, FileText, Settings, Share2, Copy, Check, Users, MoreVertical } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+type ToolWindowKey = 'waitingRoom' | 'joinRequests' | 'chat' | 'transcription'
+type ToolWindowSize = 'compact' | 'expanded'
+type ToolWindowState = Record<ToolWindowKey, {
+  open: boolean
+  pinned: boolean
+  size: ToolWindowSize
+  position: { x: number; y: number }
+}>
 
 const VideoCall = () => {
   const { roomId } = useParams<{ roomId: string }>()
   const navigate = useNavigate()
-  const [showChat, setShowChat] = useState(false)
-  const [showTranscription, setShowTranscription] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
-  const [showWaitingRoom, setShowWaitingRoom] = useState(false)
   const [showDocument, setShowDocument] = useState(false)
+  const [showToolsMenu, setShowToolsMenu] = useState(false)
+  const [showEndCallConfirm, setShowEndCallConfirm] = useState(false)
+  const [toolWindows, setToolWindows] = useState<ToolWindowState>({
+    waitingRoom: { open: false, pinned: false, size: 'compact', position: { x: 24, y: 96 } },
+    joinRequests: { open: false, pinned: false, size: 'compact', position: { x: 360, y: 96 } },
+    chat: { open: false, pinned: false, size: 'compact', position: { x: 24, y: 370 } },
+    transcription: { open: false, pinned: false, size: 'compact', position: { x: 360, y: 370 } },
+  })
+  const [draggingTool, setDraggingTool] = useState<{ key: ToolWindowKey; offsetX: number; offsetY: number } | null>(null)
   const [copied, setCopied] = useState(false)
   const [isApproved, setIsApproved] = useState(false)
   const [isCallStarted, setIsCallStarted] = useState(false)
@@ -41,9 +58,6 @@ const VideoCall = () => {
     toggleVideo,
     toggleScreenShare,
     stopScreenShare,
-    isRecording,
-    startRecording,
-    stopRecording,
     isHost,
     setHostStatus,
     waitingRoom,
@@ -55,19 +69,19 @@ const VideoCall = () => {
     leaveMeeting,
     reset
   } = useVideoStore()
-  const hasSidePanel = showWaitingRoom || showChat || showTranscription || (!!roomId && isHost)
-
+  const {
+    isRecording,
+    startRecording,
+    stopRecording,
+  } = useRecordingStore()
   const { user: currentUser } = useAuthStore()
   const { getMeetingByRoomId, startMeeting: startScheduledMeeting, endMeeting: endScheduledMeeting } = useSchedulerStore()
+  const { setActiveCall, clearActiveCall } = useCallSessionStore()
 
   useEffect(() => {
     if (roomId) {
       setCurrentRoom(roomId)
       // Don't automatically initialize call - wait for user to start it
-    }
-
-    return () => {
-      cleanupCall()
     }
   }, [roomId])
 
@@ -93,54 +107,55 @@ const VideoCall = () => {
     }
   }, [participants, waitingRoom, currentUser, isHost, isApproved])
 
+  useEffect(() => {
+    if (!draggingTool) return
+    const handleMouseMove = (event: MouseEvent) => {
+      setToolWindows((prev) => ({
+        ...prev,
+        [draggingTool.key]: {
+          ...prev[draggingTool.key],
+          position: {
+            x: Math.max(12, event.clientX - draggingTool.offsetX),
+            y: Math.max(70, event.clientY - draggingTool.offsetY),
+          },
+        },
+      }))
+    }
+    const handleMouseUp = () => setDraggingTool(null)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [draggingTool])
+
   const initializeCall = async () => {
     try {
-      let effectiveUser = currentUser
-
       if (!currentUser) {
-        // Prompt user to login or continue as guest
-        const shouldLogin = window.confirm(
-          'To access all features, please log in. Click OK to go to login page, or Cancel to continue as guest.'
-        );
-        
-        if (shouldLogin) {
-          // Save the room ID for after login
-          sessionStorage.setItem('pendingJoin', JSON.stringify({
-            meetingId: roomId,
-            displayName: 'Guest User',
-            isVideoEnabled: true,
-            isAudioEnabled: true
-          }));
-          navigate('/login');
-          return;
-        } else {
-          // Continue as guest - create a temporary user
-          const guestUser = {
-            id: `guest-${Date.now()}`,
-            name: 'Guest User',
-            email: '',
-            isOnline: true,
-            createdAt: new Date(),
-            lastLoginAt: new Date()
-          }
-          effectiveUser = guestUser
-          setCurrentUser(guestUser)
-          console.log('Continuing as guest:', guestUser)
-        }
-      } else {
-        setCurrentUser(currentUser)
+        toast.error('Sign in or create an account to start or join a call')
+        navigate('/login', { state: { from: { pathname: `/call/${roomId || ''}`, search: window.location.search } } })
+        return
       }
+      const effectiveUser = currentUser
+      setCurrentUser(currentUser)
 
       // Check if user is joining via link (not the host)
       const urlParams = new URLSearchParams(window.location.search)
       const isJoining = urlParams.get('join') === 'true'
       
-      console.log('VideoCall - isJoining:', isJoining, 'isHost:', isHost, 'currentUser:', effectiveUser)
-      
       if (isJoining) {
         if (!effectiveUser) {
           toast.error('Unable to join waiting room without a user identity')
           return
+        }
+        if (roomId) {
+          setActiveCall({
+            roomId,
+            type: 'one-on-one',
+            route: `/call/${roomId}`,
+            title: 'One-on-One Call',
+          })
         }
         // User is joining via link - add to waiting room
         console.log('Adding user to waiting room:', effectiveUser)
@@ -167,6 +182,14 @@ const VideoCall = () => {
       
       setLocalStream(stream)
       setIsCallStarted(true)
+      if (roomId) {
+        setActiveCall({
+          roomId,
+          type: 'one-on-one',
+          route: `/call/${roomId}`,
+          title: 'One-on-One Call',
+        })
+      }
       toast.success('Call started! Share the link to invite others.')
       
       // Request notification permission for host
@@ -199,11 +222,13 @@ const VideoCall = () => {
       }
       
       endMeeting()
+      clearActiveCall()
       cleanupCall()
       navigate('/')
       toast.success('Call ended')
     } else {
       leaveMeeting()
+      clearActiveCall()
       cleanupCall()
       navigate('/')
       toast.success('Left the call')
@@ -248,14 +273,22 @@ const VideoCall = () => {
     }
   }
 
-  const handleRecording = () => {
-    if (!isRecording) {
-      startRecording()
-      toast.success('Recording started')
-    } else {
-      stopRecording()
-      toast.success('Recording stopped')
+  const handleRecording = async () => {
+    if (!roomId) {
+      toast.error('Missing room id for recording')
+      return
     }
+    if (!isRecording) {
+      try {
+        await startRecording(roomId, `${currentUser?.name || 'Host'} - ${roomId}`)
+        toast.success('Recording started')
+      } catch {
+        toast.error('Failed to start recording')
+      }
+      return
+    }
+    stopRecording()
+    toast.success('Recording stopped')
   }
 
   const getMeetingLink = () => {
@@ -294,6 +327,41 @@ const VideoCall = () => {
     }
   }
 
+  const openToolWindow = (key: ToolWindowKey) => {
+    setToolWindows((prev) => {
+      const next = { ...prev }
+      ;(Object.keys(next) as ToolWindowKey[]).forEach((entry) => {
+        if (!next[entry].pinned) {
+          next[entry] = { ...next[entry], open: false }
+        }
+      })
+      next[key] = { ...next[key], open: true }
+      return next
+    })
+    setShowToolsMenu(false)
+  }
+
+  const closeToolWindow = (key: ToolWindowKey) => {
+    setToolWindows((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], open: false },
+    }))
+  }
+
+  const togglePinToolWindow = (key: ToolWindowKey) => {
+    setToolWindows((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], pinned: !prev[key].pinned },
+    }))
+  }
+
+  const toggleToolWindowSize = (key: ToolWindowKey) => {
+    setToolWindows((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], size: prev[key].size === 'compact' ? 'expanded' : 'compact' },
+    }))
+  }
+
   // Show dashboard if call hasn't started yet
   if (!isCallStarted) {
     return (
@@ -319,34 +387,7 @@ const VideoCall = () => {
           </div>
         </div>
         
-        <div className="flex items-center space-x-2">
-          {isHost && (
-            <ControlButton
-              onClick={() => setShowWaitingRoom(!showWaitingRoom)}
-              title="Manage Waiting Room - Approve/Reject Attendees"
-              variant="warning"
-              showBadge={waitingRoom.length > 0}
-              badgeContent={waitingRoom.length}
-              badgeColor="red"
-            >
-              <Users />
-            </ControlButton>
-          )}
-          <ControlButton
-            onClick={handleShareMeeting}
-            title="Share Meeting Link with Others"
-            variant="success"
-          >
-            <Share2 />
-          </ControlButton>
-          <ControlButton
-            onClick={() => setShowSettings(!showSettings)}
-            title="Meeting Settings and Configuration"
-            variant="default"
-          >
-            <Settings />
-          </ControlButton>
-        </div>
+        <div />
       </div>
 
       {/* Main Content */}
@@ -354,10 +395,93 @@ const VideoCall = () => {
         {/* Video Area */}
         <div className="relative flex-1 min-w-0 pb-24">
           <VideoGrid />
+
+          <div className="absolute left-3 top-3 z-20 sm:left-4 sm:top-4">
+            <div className="relative">
+              <button
+                onClick={() => setShowToolsMenu((prev) => !prev)}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-gray-900/85 px-3 py-2 text-xs font-medium text-white backdrop-blur hover:bg-gray-800/85"
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+                Tools
+              </button>
+              {showToolsMenu && (
+                <div className="mt-2 w-56 rounded-xl border border-white/10 bg-gray-900/95 p-1 shadow-lg backdrop-blur">
+                  {isHost && (
+                    <button
+                      onClick={() => openToolWindow('waitingRoom')}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                    >
+                      <Users className="h-4 w-4" />
+                      Waiting room
+                    </button>
+                  )}
+                  {isHost && roomId && (
+                    <button
+                      onClick={() => openToolWindow('joinRequests')}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                    >
+                      <Users className="h-4 w-4" />
+                      Join requests
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { handleShareMeeting(); setShowToolsMenu(false) }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Share link
+                  </button>
+                  <button
+                    onClick={() => { void handleScreenShare(); setShowToolsMenu(false) }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                  >
+                    {isScreenSharing ? <MonitorOff className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
+                    {isScreenSharing ? 'Stop screen share' : 'Start screen share'}
+                  </button>
+                  <button
+                    onClick={() => { void handleRecording(); setShowToolsMenu(false) }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                  >
+                    <div className={`h-3.5 w-3.5 rounded-full border ${isRecording ? 'border-red-500 bg-red-500' : 'border-gray-300'}`} />
+                    {isRecording ? 'Stop recording' : 'Start recording'}
+                  </button>
+                  <button
+                    onClick={() => openToolWindow('chat')}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Chat
+                  </button>
+                  <button
+                    onClick={() => openToolWindow('transcription')}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Transcription
+                  </button>
+                  <button
+                    onClick={() => { setShowDocument((v) => !v); setShowToolsMenu(false) }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                  >
+                    <FileText className="h-4 w-4" />
+                    {showDocument ? 'Hide document' : 'Collaborative doc'}
+                  </button>
+                  <button
+                    onClick={() => { setShowSettings((v) => !v); setShowToolsMenu(false) }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-800"
+                  >
+                    <Settings className="h-4 w-4" />
+                    {showSettings ? 'Hide settings' : 'Settings'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
           
           {/* Floating Controls */}
           <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 sm:bottom-6">
-          <div className="flex max-w-[calc(100vw-1rem)] items-center space-x-2 rounded-full border border-white/10 bg-gray-900/85 px-3 py-2 backdrop-blur sm:space-x-3 sm:px-4">
+          <div className="flex max-w-[calc(100vw-1rem)] items-center space-x-1 rounded-full border border-white/10 bg-gray-900/85 px-3 py-2 backdrop-blur sm:space-x-2 sm:px-4">
               <ControlButton
                 onClick={toggleAudio}
                 title={isAudioEnabled ? 'Mute Audio' : 'Unmute Audio'}
@@ -373,50 +497,9 @@ const VideoCall = () => {
               >
                 {isVideoEnabled ? <Video /> : <VideoOff />}
               </ControlButton>
-              
               <ControlButton
-                onClick={handleScreenShare}
-                title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
-                variant={isScreenSharing ? 'active' : 'default'}
-              >
-                {isScreenSharing ? <MonitorOff /> : <Monitor />}
-              </ControlButton>
-              
-              <ControlButton
-                onClick={handleRecording}
-                title={isRecording ? 'Stop Recording' : 'Start Recording'}
-                variant={isRecording ? 'active' : 'default'}
-              >
-                <div className={`h-full w-full rounded-full border-2 ${isRecording ? 'border-red-500 bg-red-500' : 'border-current'}`}></div>
-              </ControlButton>
-              
-              <ControlButton
-                onClick={() => setShowChat(!showChat)}
-                title="Toggle Chat Panel"
-                variant={showChat ? 'active' : 'default'}
-              >
-                <MessageSquare />
-              </ControlButton>
-              
-              <ControlButton
-                onClick={() => setShowTranscription(!showTranscription)}
-                title="Toggle Real-time Transcription"
-                variant={showTranscription ? 'active' : 'default'}
-              >
-                <FileText />
-              </ControlButton>
-              
-                        <ControlButton
-            onClick={() => setShowDocument(!showDocument)}
-            title="Open Collaborative Document"
-            variant={showDocument ? 'active' : 'default'}
-          >
-            <FileText />
-          </ControlButton>
-              
-              <ControlButton
-                onClick={handleEndCall}
-                title="End Call and Leave Meeting"
+                onClick={() => setShowEndCallConfirm(true)}
+                title="End Call"
                 variant="danger"
               >
                 <PhoneOff />
@@ -425,47 +508,66 @@ const VideoCall = () => {
           </div>
         </div>
 
-        {/* Side Panels */}
-        <div
-          className={`pointer-events-none absolute right-2 top-2 bottom-20 z-10 w-[min(22rem,calc(100%-1rem))] transition-opacity sm:right-4 sm:top-4 sm:w-80 ${
-            hasSidePanel ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="pointer-events-auto h-full overflow-y-auto rounded-2xl border border-white/10 bg-gray-950/55 p-2 backdrop-blur">
-          <div className="flex flex-col space-y-2">
-          {showWaitingRoom && (
-            <div>
-              <WaitingRoom />
-            </div>
-          )}
+        {(Object.keys(toolWindows) as ToolWindowKey[]).map((key) => {
+          const tool = toolWindows[key]
+          if (!tool.open) return null
+          const width = tool.size === 'expanded' ? 420 : 320
+          const height = tool.size === 'expanded' ? 320 : 240
+          const titleMap: Record<ToolWindowKey, string> = {
+            waitingRoom: 'Waiting Room',
+            joinRequests: 'Join Requests',
+            chat: 'Chat',
+            transcription: 'Transcription',
+          }
+          const renderContent = () => {
+            if (key === 'waitingRoom') return <WaitingRoom />
+            if (key === 'joinRequests' && roomId && isHost) return <MeetingJoinRequestsPanel roomId={roomId} title="Guest join requests" />
+            if (key === 'chat') return <ChatPanel />
+            if (key === 'transcription') return <TranscriptionPanel />
+            return null
+          }
 
-          {isHost && roomId && (
-            <div>
-              <MeetingJoinRequestsPanel roomId={roomId} title="Guest join requests" />
+          return (
+            <div
+              key={key}
+              className="absolute z-20 overflow-hidden rounded-xl border border-white/15 bg-gray-900/85 backdrop-blur"
+              style={{ left: tool.position.x, top: tool.position.y, width, height }}
+            >
+              <div
+                className="flex cursor-move items-center justify-between border-b border-white/10 px-2 py-1.5 text-xs text-gray-200"
+                onMouseDown={(event) => setDraggingTool({ key, offsetX: event.clientX - tool.position.x, offsetY: event.clientY - tool.position.y })}
+              >
+                <span className="font-medium">{titleMap[key]}</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => toggleToolWindowSize(key)} className="rounded px-1.5 py-0.5 hover:bg-gray-800">{tool.size === 'expanded' ? '−' : '+'}</button>
+                  <button onClick={() => togglePinToolWindow(key)} className={`rounded px-1.5 py-0.5 hover:bg-gray-800 ${tool.pinned ? 'text-emerald-300' : ''}`}>{tool.pinned ? 'Pinned' : 'Pin'}</button>
+                  <button onClick={() => closeToolWindow(key)} className="rounded px-1.5 py-0.5 hover:bg-gray-800">×</button>
+                </div>
+              </div>
+              <div className="h-[calc(100%-2rem)] overflow-auto p-1">
+                {renderContent()}
+              </div>
             </div>
-          )}
-          
-          {showChat && (
-            <div>
-              <ChatPanel />
-            </div>
-          )}
-          
-          {showTranscription && (
-            <div>
-              <TranscriptionPanel />
-            </div>
-          )}
-          
-          {/* Whiteboard is rendered as a modal overlay */}
-          </div>
-          </div>
-        </div>
+          )
+        })}
       </div>
 
       {/* Collaborative Document */}
       {showDocument && (
         <CollaborativeDocument />
+      )}
+
+      {showEndCallConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-5 text-gray-900 shadow-xl dark:border-gray-800 dark:bg-gray-900 dark:text-white">
+            <h3 className="text-base font-semibold">End call?</h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">This will disconnect you from the current meeting.</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setShowEndCallConfirm(false)} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">Cancel</button>
+              <button onClick={() => { setShowEndCallConfirm(false); handleEndCall() }} className="rounded-lg border border-red-600 bg-red-600 px-3 py-1.5 text-sm font-medium text-white">End call</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Share Meeting Modal */}

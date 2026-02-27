@@ -1,11 +1,14 @@
-import { ReactNode, useState, useEffect, useRef, memo } from 'react'
+import { ReactNode, useState, useEffect, useRef, useMemo, memo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Video, Users, Presentation, Home, Calendar, LogOut, User, ChevronDown, Sun, Moon, Monitor } from 'lucide-react'
+import { Video, Users, Home, LogOut, User, ChevronDown, Sun, Moon, Monitor } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import { useAuthStore } from '../store/useAuthStore'
 import { requestNotificationPermission } from '../utils/notifications'
 import { useThemeStore } from '../store/useThemeStore'
 import { useCommunityStore } from '../store/useCommunityStore'
+import { useRecordingStore } from '../store/useRecordingStore'
+import { useSchedulerStore } from '../store/useSchedulerStore'
+import { useCallSessionStore } from '../store/useCallSessionStore'
 
 interface LayoutProps {
   children: ReactNode
@@ -22,6 +25,15 @@ const Layout = memo(({ children }: LayoutProps) => {
   const workspaceMenuRef = useRef<HTMLDivElement>(null)
   const { theme, setTheme } = useThemeStore()
   const { upsertPublicUser, setUserActive } = useCommunityStore()
+  const { isRecording, recordingDuration, currentMeetingId } = useRecordingStore()
+  const { initializeScheduler, scheduledMeetings } = useSchedulerStore()
+  const { activeCall } = useCallSessionStore()
+
+  const formatRecordingDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
 
   const primaryNavigation = [
     { name: 'Home', href: '/', icon: Home },
@@ -29,11 +41,27 @@ const Layout = memo(({ children }: LayoutProps) => {
   ]
 
   const workspaceNavigation = [
-    { name: 'Scheduler', href: '/scheduler', icon: Calendar },
-    { name: 'One-on-One', href: '/call/new', icon: Video },
-    { name: 'Group Call', href: '/group/new', icon: Users },
-    { name: 'Webinar', href: '/webinar/new', icon: Presentation },
+    { name: 'Start Calls', href: '/calls', icon: Video },
   ]
+  const myOngoingMeetings = useMemo(() => {
+    if (!user) return []
+    return scheduledMeetings
+      .filter((meeting) => meeting.isStarted && !meeting.isEnded && (meeting.hostId === user.id || meeting.joinedUserIds.includes(user.id)))
+      .sort((a, b) => (b.actualStartTime || b.startTime).getTime() - (a.actualStartTime || a.startTime).getTime())
+      .slice(0, 4)
+  }, [scheduledMeetings, user])
+
+  const getMeetingPath = (type: 'one-on-one' | 'group' | 'webinar', roomId: string) => {
+    if (type === 'group') return `/group/${roomId}`
+    if (type === 'webinar') return `/webinar/${roomId}`
+    return `/call/${roomId}`
+  }
+  const isOnCallPage =
+    location.pathname.startsWith('/call/') ||
+    location.pathname.startsWith('/group/') ||
+    location.pathname.startsWith('/webinar/')
+  const shouldShowFloatingReturnToCall =
+    !!activeCall && !isOnCallPage
 
   const themeOptions = [
     { value: 'light' as const, label: 'Light', icon: Sun },
@@ -66,12 +94,13 @@ const Layout = memo(({ children }: LayoutProps) => {
 
     const heartbeat = window.setInterval(() => {
       syncPresence(true)
-    }, 30000)
+    }, 15000)
 
     const handleOnline = () => syncPresence(true)
     const handleOffline = () => setUserActive(user.id, false)
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') syncPresence(true)
+      if (document.visibilityState === 'hidden') setUserActive(user.id, false)
     }
 
     window.addEventListener('online', handleOnline)
@@ -86,6 +115,21 @@ const Layout = memo(({ children }: LayoutProps) => {
       setUserActive(user.id, false)
     }
   }, [user, isAuthenticated, upsertPublicUser, setUserActive])
+
+  useEffect(() => {
+    void initializeScheduler()
+    const interval = window.setInterval(() => {
+      void initializeScheduler()
+    }, 10000)
+    const onFocus = () => {
+      void initializeScheduler()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [initializeScheduler])
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -152,12 +196,12 @@ const Layout = memo(({ children }: LayoutProps) => {
                     }`}
                   >
                     <Video className="w-4 h-4" />
-                    <span>Work</span>
+                    <span>Calls</span>
                     <ChevronDown className={`w-4 h-4 transition-transform ${showWorkspaceMenu ? 'rotate-180' : ''}`} />
                   </button>
 
                   {showWorkspaceMenu && (
-                    <div className="absolute left-0 mt-2 w-48 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                    <div className="absolute left-0 mt-2 w-72 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
                       {workspaceNavigation.map((item) => {
                         const Icon = item.icon
                         const isActive = location.pathname === item.href
@@ -177,6 +221,25 @@ const Layout = memo(({ children }: LayoutProps) => {
                           </Link>
                         )
                       })}
+                      {user && myOngoingMeetings.length > 0 && (
+                        <>
+                          <div className="my-1 border-t border-gray-200 dark:border-gray-800" />
+                          <p className="px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+                            My Ongoing Calls
+                          </p>
+                          {myOngoingMeetings.map((meeting) => (
+                            <Link
+                              key={meeting.id}
+                              to={getMeetingPath(meeting.type, meeting.roomId)}
+                              onClick={() => setShowWorkspaceMenu(false)}
+                              className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                            >
+                              <span className="truncate">{meeting.title || meeting.roomId}</span>
+                              <span className="text-[11px] uppercase text-emerald-600 dark:text-emerald-400">live</span>
+                            </Link>
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -185,6 +248,20 @@ const Layout = memo(({ children }: LayoutProps) => {
 
             {/* Right side - Theme toggle and user menu */}
             <div className="flex items-center space-x-2 sm:space-x-4">
+              {isRecording && (
+                <button
+                  onClick={() => navigate('/recordings')}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+                  title="Recording is active"
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-70" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  </span>
+                  <span>REC {formatRecordingDuration(recordingDuration)}</span>
+                  {currentMeetingId && <span className="hidden md:inline">• {currentMeetingId}</span>}
+                </button>
+              )}
               {isAuthenticated && user ? (
                 <div className="relative" ref={userMenuRef}>
                   <button
@@ -306,10 +383,10 @@ const Layout = memo(({ children }: LayoutProps) => {
                   className="flex flex-col items-center space-y-1 px-2.5 py-2 rounded-md text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 >
                   <Video className="w-4 h-4" />
-                  <span>Work</span>
+                  <span>Calls</span>
                 </button>
                 {showMobileWorkspaceMenu && (
-                  <div className="absolute right-0 bottom-full mb-2 w-48 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                  <div className="absolute right-0 bottom-full mb-2 w-72 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
                     {workspaceNavigation.map((item) => {
                       const Icon = item.icon
                       return (
@@ -324,6 +401,25 @@ const Layout = memo(({ children }: LayoutProps) => {
                         </Link>
                       )
                     })}
+                    {user && myOngoingMeetings.length > 0 && (
+                      <>
+                        <div className="my-1 border-t border-gray-200 dark:border-gray-800" />
+                        <p className="px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+                          My Ongoing Calls
+                        </p>
+                        {myOngoingMeetings.map((meeting) => (
+                          <Link
+                            key={meeting.id}
+                            to={getMeetingPath(meeting.type, meeting.roomId)}
+                            onClick={() => setShowMobileWorkspaceMenu(false)}
+                            className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                          >
+                            <span className="truncate">{meeting.title || meeting.roomId}</span>
+                            <span className="text-[11px] uppercase text-emerald-600 dark:text-emerald-400">live</span>
+                          </Link>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -336,6 +432,20 @@ const Layout = memo(({ children }: LayoutProps) => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
         {children}
       </main>
+      {shouldShowFloatingReturnToCall && activeCall && (
+        <button
+          type="button"
+          onClick={() => navigate(activeCall.route)}
+          className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 rounded-full border border-emerald-400 bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-600"
+          title="Return to your ongoing call"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70 opacity-80" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+          </span>
+          Return to call
+        </button>
+      )}
     </div>
   )
 })

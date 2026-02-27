@@ -94,18 +94,18 @@ const ViewRecordings: React.FC<ViewRecordingsProps> = ({ onBack }) => {
     },
     {
       id: '3',
-      title: 'Client Presentation - Demo',
+      title: 'Client Presentation - Walkthrough',
       duration: 2700, // 45 minutes
       size: '1.9 GB',
       date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
       participants: 5,
       thumbnail: '/api/placeholder/320/180',
       isStarred: true,
-      tags: ['client', 'demo', 'presentation'],
+      tags: ['client', 'walkthrough', 'presentation'],
       quality: '720p',
       format: 'mp4',
       meetingId: 'jkl-789-mno',
-      description: 'Product demo for client showcasing new features',
+      description: 'Product walkthrough for client showcasing new features',
       downloadUrl: '#',
       streamUrl: '#'
     },

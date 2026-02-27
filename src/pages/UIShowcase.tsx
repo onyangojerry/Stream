@@ -19,7 +19,7 @@ const UIShowcase: React.FC = () => {
       title: '3D Rendering Effects',
       description: 'Advanced CSS 3D transforms, depth layers, and perspective animations',
       gradient: 'from-purple-500 to-pink-500',
-      demo: (
+      preview: (
         <div className="relative">
           <div className="card-3d glass-card p-4 transform hover:scale-105 transition-all duration-300">
             <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg mb-3 flex items-center justify-center">
@@ -36,7 +36,7 @@ const UIShowcase: React.FC = () => {
       title: 'Modern Color Palette',
       description: 'Carefully curated gradients, glass morphism, and dynamic color schemes',
       gradient: 'from-blue-500 to-cyan-500',
-      demo: (
+      preview: (
         <div className="space-y-2">
           <div className="flex gap-2">
             <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg shadow-glow-purple"></div>
@@ -54,7 +54,7 @@ const UIShowcase: React.FC = () => {
       title: 'Interactive Elements',
       description: 'Smooth hover states, micro-interactions, and responsive feedback',
       gradient: 'from-green-500 to-emerald-500',
-      demo: (
+      preview: (
         <div className="space-y-3">
           <motion.button
             whileHover={{ scale: 1.05, y: -2 }}
@@ -83,7 +83,7 @@ const UIShowcase: React.FC = () => {
       title: 'Visual Hierarchy',
       description: 'Clear typography, proper spacing, and intuitive information architecture',
       gradient: 'from-orange-500 to-amber-500',
-      demo: (
+      preview: (
         <div className="space-y-3">
           <h4 className="text-gradient font-bold text-lg">Gradient Text</h4>
           <p className="text-white font-medium">Primary Text</p>
@@ -97,7 +97,7 @@ const UIShowcase: React.FC = () => {
       title: 'Layered Design',
       description: 'Depth through shadows, backdrop blur, and strategic layering',
       gradient: 'from-pink-500 to-rose-500',
-      demo: (
+      preview: (
         <div className="relative">
           <div className="glass-card p-4 relative z-10">
             <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center text-xs text-white font-bold z-20">
@@ -113,7 +113,7 @@ const UIShowcase: React.FC = () => {
       title: 'Smooth Animations',
       description: 'Framer Motion powered transitions and micro-interactions',
       gradient: 'from-yellow-500 to-orange-500',
-      demo: (
+      preview: (
         <div className="relative h-16 flex items-center justify-center">
           <motion.div
             animate={{
@@ -192,16 +192,16 @@ const UIShowcase: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Demo Area */}
+                {/* Preview Area */}
                 <div className="mt-6 p-4 rounded-xl bg-black/20 backdrop-blur-sm border border-white/10">
-                  {feature.demo}
+                  {feature.preview}
                 </div>
               </motion.div>
             );
           })}
         </div>
 
-        {/* Interactive Demo Section */}
+        {/* Interactive Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -209,14 +209,14 @@ const UIShowcase: React.FC = () => {
           className="glass-card p-8 border border-white/20 card-3d mb-12"
         >
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gradient mb-4">Interactive Component Demo</h2>
+            <h2 className="text-3xl font-bold text-gradient mb-4">Interactive Components</h2>
             <p className="text-white/70 max-w-2xl mx-auto">
               Try out our enhanced components with real-time interactions and smooth animations.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Control Button Demo */}
+            {/* Control Button Preview */}
             <div className="space-y-4">
               <h4 className="text-white font-semibold">Control Buttons</h4>
               <div className="flex gap-2 justify-center">
@@ -237,7 +237,7 @@ const UIShowcase: React.FC = () => {
               </div>
             </div>
 
-            {/* Glass Cards Demo */}
+            {/* Glass Cards Preview */}
             <div className="space-y-4">
               <h4 className="text-white font-semibold">Glass Morphism</h4>
               <motion.div 
@@ -249,7 +249,7 @@ const UIShowcase: React.FC = () => {
               </motion.div>
             </div>
 
-            {/* Animation Demo */}
+            {/* Animation Preview */}
             <div className="space-y-4">
               <h4 className="text-white font-semibold">Animations</h4>
               <div className="relative h-16 bg-black/20 rounded-xl flex items-center justify-center">

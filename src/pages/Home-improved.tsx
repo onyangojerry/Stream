@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 
-type ActionId = 'instant' | 'join' | 'schedule' | 'recordings' | 'profile' | 'community'
+type ActionId = 'calls' | 'join' | 'recordings' | 'profile' | 'community'
 
 type TerminalAction = {
   id: ActionId
@@ -16,13 +16,6 @@ type TerminalAction = {
 
 const actions: TerminalAction[] = [
   {
-    id: 'instant',
-    label: 'Start instant meeting',
-    command: 'meet.start',
-    description: 'Create a room and launch a one-on-one call',
-    aliases: ['instant', 'start', 'meet', 'call'],
-  },
-  {
     id: 'join',
     label: 'Join meeting',
     command: 'meet.join',
@@ -30,11 +23,11 @@ const actions: TerminalAction[] = [
     aliases: ['join', 'meeting', 'room'],
   },
   {
-    id: 'schedule',
-    label: 'Schedule meeting',
-    command: 'meet.schedule',
-    description: 'Plan a future meeting',
-    aliases: ['schedule', 'calendar'],
+    id: 'calls',
+    label: 'Start calls',
+    command: 'calls.open',
+    description: 'Choose call type and launch mode (instant or schedule)',
+    aliases: ['calls', 'call', 'start', 'schedule'],
   },
   {
     id: 'recordings',
@@ -60,7 +53,7 @@ const actions: TerminalAction[] = [
 ]
 
 const capabilityLines = [
-  '1. meeting controls      [ready]',
+  '1. calls launcher        [ready]',
   '2. scheduler             [ready]',
   '3. community materials   [ready]',
   '4. threaded chats        [ready]',
@@ -120,14 +113,11 @@ export default function Home() {
     pushLog(`> executing ${action.label.toLowerCase()}...`)
 
     switch (action.id) {
-      case 'instant':
-        navigate(`/call/${Math.random().toString(36).slice(2, 12)}`)
-        break
       case 'join':
         navigate('/join')
         break
-      case 'schedule':
-        navigate('/scheduler')
+      case 'calls':
+        navigate('/calls')
         break
       case 'recordings':
         navigate('/recordings')
@@ -247,7 +237,7 @@ export default function Home() {
 
                 <form onSubmit={handleSubmit} className="mt-3">
                   <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">
-                    Enter number or command string (example: `1` or `meet.schedule`)
+                    Enter number or command string (example: `1` or `calls.open`)
                   </label>
                   <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-2 dark:border-gray-700 dark:bg-gray-800">
                     <span className="font-mono text-emerald-600 dark:text-emerald-400">$</span>
@@ -341,7 +331,7 @@ export default function Home() {
                 <div key={line}>{line}</div>
               ))}
               <div className="pt-2 text-gray-500 dark:text-gray-400">
-                shortcuts: `instant`, `join`, `schedule`, `community`
+                shortcuts: `calls`, `join`, `community`
               </div>
             </div>
           </div>
@@ -354,8 +344,8 @@ export default function Home() {
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           {[
-            { icon: Video, label: 'meet.start', detail: 'Launch instant call', id: 'instant' as const },
-            { icon: Calendar, label: 'meet.schedule', detail: 'Plan a future meeting', id: 'schedule' as const },
+            { icon: Video, label: 'calls.open', detail: 'Pick call type and mode', id: 'calls' as const },
+            { icon: Calendar, label: 'meet.join', detail: 'Join with meeting ID', id: 'join' as const },
             { icon: Play, label: 'media.recordings', detail: 'Review saved sessions', id: 'recordings' as const },
           ]
             .filter((item) => isAuthenticated || item.id !== 'recordings')

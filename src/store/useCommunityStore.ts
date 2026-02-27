@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
   addMaterialReaction,
+  fetchMaterialReactionEvents,
   createCollaborationInviteWithId,
   createCommunityWithId,
   createJoinRequestWithId,
@@ -17,8 +18,12 @@ import {
   fetchThreadMessages,
   fetchThreads,
   fetchPublicUsers,
+  fetchFollowedUserIds,
+  followUser,
+  logMaterialReactionEvent,
   setUserActive as setUserActiveRemote,
   touchThread,
+  unfollowUser,
   updateCollaborationInviteStatus as updateCollaborationInviteStatusRemote,
   updateCommunityRecord,
   updateJoinRequestStatus as updateJoinRequestStatusRemote,
@@ -27,7 +32,7 @@ import {
 } from '../services/communityApi'
 import { useAuthStore } from './useAuthStore'
 
-export type MaterialType = 'recording' | 'presentation' | 'image' | 'video' | 'object' | 'document' | 'project' | 'demo'
+export type MaterialType = 'recording' | 'presentation' | 'image' | 'video' | 'object' | 'document' | 'project'
 export type CollaborationRole = 'viewer' | 'commenter' | 'editor'
 export type PublicationVisibility = 'public' | 'private' | 'invite-gated'
 
@@ -62,7 +67,6 @@ export interface PublicMaterial {
   type: MaterialType
   url: string
   githubUrl?: string
-  demoUrl?: string
   ownerUserId?: string
   ownerName: string
   isPublic: boolean
@@ -73,6 +77,15 @@ export interface PublicMaterial {
   collaboratorIds: string[]
   createdAt: Date
   updatedAt: Date
+}
+
+export interface MaterialReactionEvent {
+  id: string
+  materialId: string
+  reaction: string
+  action: 'add' | 'remove'
+  actorUserId?: string
+  createdAt: Date
 }
 
 export interface CollaborationInvite {
@@ -128,10 +141,12 @@ interface CommunityState {
   publicUsers: PublicUserProfile[]
   joinRequests: MeetingJoinRequest[]
   publicMaterials: PublicMaterial[]
+  materialReactionEvents: MaterialReactionEvent[]
   collaborationInvites: CollaborationInvite[]
   communities: CommunityGroup[]
   threads: CommunityThread[]
   threadMessages: CommunityThreadMessage[]
+  followedUserIds: string[]
 
   initializeCommunity: () => Promise<void>
   refreshJoinRequests: (roomId?: string) => Promise<void>
@@ -139,7 +154,7 @@ interface CommunityState {
   setUserActive: (userId: string, active: boolean) => void
   submitJoinRequest: (payload: Omit<MeetingJoinRequest, 'id' | 'status' | 'createdAt'>) => void
   updateJoinRequestStatus: (id: string, status: MeetingJoinRequest['status']) => void
-  publishMaterial: (payload: Omit<PublicMaterial, 'id' | 'reactions' | 'collaboratorIds' | 'createdAt' | 'updatedAt'>) => void
+  publishMaterial: (payload: Omit<PublicMaterial, 'id' | 'reactions' | 'collaboratorIds' | 'createdAt' | 'updatedAt'>) => Promise<void>
   updateMaterial: (id: string, updates: Partial<PublicMaterial>) => void
   deleteMaterial: (id: string) => void
   reactToMaterial: (materialId: string, reaction: string, actorUserId?: string) => void
@@ -150,15 +165,16 @@ interface CommunityState {
   deleteCommunity: (id: string) => void
   createThread: (payload: Omit<CommunityThread, 'id' | 'createdAt' | 'updatedAt'>) => void
   addThreadMessage: (payload: Omit<CommunityThreadMessage, 'id' | 'createdAt'>) => void
+  toggleFollowUser: (targetUserId: string) => void
 }
 
 const seedMaterials = (): PublicMaterial[] => [
   {
     id: 'mat-seed-1',
-    title: 'Quarterly Product Demo Recording',
+    title: 'Quarterly Product Review Recording',
     description: 'Public recording and notes link for stakeholders.',
     type: 'recording',
-    url: 'https://example.com/recordings/product-demo',
+    url: 'https://example.com/recordings/product-review',
     visibility: 'public',
     ownerName: 'Striim Team',
     isPublic: true,
@@ -191,33 +207,39 @@ export const useCommunityStore = create<CommunityState>()(
       publicUsers: [],
       joinRequests: [],
       publicMaterials: seedMaterials(),
+      materialReactionEvents: [],
       collaborationInvites: [],
       communities: [],
       threads: [],
       threadMessages: [],
+      followedUserIds: [],
 
       initializeCommunity: async () => {
         set({ isSyncing: true })
         try {
           const viewerUserId = useAuthStore.getState().user?.id
-          const [users, requests, materials, invites, communities, threads, threadMessages] = await Promise.all([
+          const [users, requests, materials, reactionEvents, invites, communities, threads, threadMessages, followedUserIds] = await Promise.all([
             fetchPublicUsers().catch(() => []),
             fetchJoinRequests().catch(() => []),
             fetchPublicMaterials(viewerUserId).catch(() => []),
+            fetchMaterialReactionEvents().catch(() => []),
             fetchCollaborationInvites().catch(() => []),
             fetchCommunities().catch(() => []),
             fetchThreads().catch(() => []),
             fetchThreadMessages().catch(() => []),
+            viewerUserId ? fetchFollowedUserIds(viewerUserId).catch(() => []) : Promise.resolve([]),
           ])
 
           set((state) => ({
             publicUsers: users.length ? users : state.publicUsers,
             joinRequests: requests.length ? requests : state.joinRequests,
             publicMaterials: materials.length ? materials : state.publicMaterials,
+            materialReactionEvents: reactionEvents.length ? reactionEvents : state.materialReactionEvents,
             collaborationInvites: invites.length ? invites : state.collaborationInvites,
             communities: communities.length ? communities : state.communities,
             threads: threads.length ? threads : state.threads,
             threadMessages: threadMessages.length ? threadMessages : state.threadMessages,
+            followedUserIds,
             lastSyncedAt: new Date(),
           }))
         } finally {
@@ -296,24 +318,30 @@ export const useCommunityStore = create<CommunityState>()(
           }),
         })),
 
-      publishMaterial: (payload) =>
+      publishMaterial: async (payload) => {
+        const next: PublicMaterial = {
+          ...payload,
+          id: crypto.randomUUID(),
+          reactions: {},
+          collaboratorIds: [],
+          visibility: payload.visibility ?? (payload.isPublic ? 'public' : 'private'),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+
         set((state) => ({
-          publicMaterials: (() => {
-            const next: PublicMaterial = {
-              ...payload,
-              id: crypto.randomUUID(),
-              reactions: {},
-              collaboratorIds: [],
-              visibility: payload.visibility ?? (payload.isPublic ? 'public' : 'private'),
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            }
-            void createPublicMaterialWithId(next.id, payload).catch((error) => {
-              console.warn('Failed to persist material', error)
-            })
-            return [next, ...state.publicMaterials]
-          })(),
-        })),
+          publicMaterials: [next, ...state.publicMaterials],
+        }))
+
+        try {
+          await createPublicMaterialWithId(next.id, payload)
+        } catch (error) {
+          set((state) => ({
+            publicMaterials: state.publicMaterials.filter((material) => material.id !== next.id),
+          }))
+          throw error
+        }
+      },
 
       updateMaterial: (id, updates) =>
         set((state) => {
@@ -347,6 +375,9 @@ export const useCommunityStore = create<CommunityState>()(
 
       reactToMaterial: (materialId, reaction, actorUserId) => {
         let shouldAdd = true
+        let changed = false
+        const createdAt = new Date()
+        const eventId = crypto.randomUUID()
 
         set((state) => ({
           publicMaterials: state.publicMaterials.map((material) => {
@@ -355,6 +386,7 @@ export const useCommunityStore = create<CommunityState>()(
             const myReactions = material.myReactions ?? []
             const alreadyReacted = !!actorUserId && myReactions.includes(reaction)
             shouldAdd = !alreadyReacted
+            changed = true
             const nextCount = Math.max(0, (material.reactions[reaction] ?? 0) + (shouldAdd ? 1 : -1))
 
             return {
@@ -371,10 +403,35 @@ export const useCommunityStore = create<CommunityState>()(
               updatedAt: new Date(),
             }
           }),
+          materialReactionEvents: changed
+            ? [
+                {
+                  id: eventId,
+                  materialId,
+                  reaction,
+                  action: (shouldAdd ? 'add' : 'remove') as MaterialReactionEvent['action'],
+                  actorUserId,
+                  createdAt,
+                },
+                ...state.materialReactionEvents,
+              ].slice(0, 500)
+            : state.materialReactionEvents,
         }))
+
+        if (!changed) return
 
         void addMaterialReaction(materialId, reaction, actorUserId, shouldAdd).catch((error) => {
           console.warn('Failed to persist material reaction', error)
+        })
+        void logMaterialReactionEvent({
+          id: eventId,
+          materialId,
+          reaction,
+          action: (shouldAdd ? 'add' : 'remove') as MaterialReactionEvent['action'],
+          actorUserId,
+          createdAt,
+        }).catch((error) => {
+          console.warn('Failed to persist material reaction event', error)
         })
       },
 
@@ -520,6 +577,27 @@ export const useCommunityStore = create<CommunityState>()(
             ),
           }
         }),
+
+      toggleFollowUser: (targetUserId) =>
+        set((state) => {
+          const viewerUserId = useAuthStore.getState().user?.id
+          if (!viewerUserId || viewerUserId === targetUserId) return state
+          const alreadyFollowing = state.followedUserIds.includes(targetUserId)
+          if (alreadyFollowing) {
+            void unfollowUser(viewerUserId, targetUserId).catch((error) => {
+              console.warn('Failed to unfollow user', error)
+            })
+          } else {
+            void followUser(viewerUserId, targetUserId).catch((error) => {
+              console.warn('Failed to follow user', error)
+            })
+          }
+          return {
+            followedUserIds: alreadyFollowing
+              ? state.followedUserIds.filter((id) => id !== targetUserId)
+              : [...state.followedUserIds, targetUserId],
+          }
+        }),
     }),
     {
       name: 'striim-community',
@@ -533,6 +611,10 @@ export const useCommunityStore = create<CommunityState>()(
           visibility: (m as any).visibility ?? (m.isPublic ? 'public' : 'private'),
           createdAt: new Date(m.createdAt),
           updatedAt: new Date(m.updatedAt),
+        }))
+        state.materialReactionEvents = (state.materialReactionEvents ?? []).map((event) => ({
+          ...event,
+          createdAt: new Date(event.createdAt),
         }))
         state.collaborationInvites = state.collaborationInvites.map((i) => ({ ...i, createdAt: new Date(i.createdAt) }))
         state.communities = state.communities.map((c) => ({
@@ -549,6 +631,7 @@ export const useCommunityStore = create<CommunityState>()(
           ...m,
           createdAt: new Date(m.createdAt),
         }))
+        state.followedUserIds = state.followedUserIds ?? []
       },
     },
   ),
