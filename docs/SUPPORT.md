@@ -1,20 +1,17 @@
-# Support & Community
+# Support
 
-## Getting Help
-- Documentation in `docs/`
-- GitHub Issues for bugs/requests
-- GitHub Discussions for Q&A
+## Before Opening an Issue
+1. Read `README.md`.
+2. Verify setup in `docs/SUPABASE_SETUP.md`.
+3. Check `docs/TROUBLESHOOTING.md`.
+4. Run `npm run build:check`.
 
-## Issue Reporting
+## Issue Report Template
 Include:
-- Browser + version
-- OS
-- Steps to reproduce
-- Expected vs actual behavior
-- Console errors
-- Screenshots/videos
+- route or feature area
+- expected behavior
+- actual behavior
+- browser and OS
+- console/network errors
+- confirmation that required SQL was applied
 
-## Feature Requests
-- Check existing issues first
-- Describe problem and proposed solution
-- Consider complexity and provide examples/mockups

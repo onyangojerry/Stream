@@ -1,19 +1,29 @@
-# Privacy & Security
+# Privacy and Data Handling
 
-## Data Protection
-- Peer-to-peer via WebRTC; no server-side media storage
-- Local, in-browser processing of audio/video
-- No external data collection by default
-- Designed with GDPR considerations
+## Data Stored
+Persisted in Supabase:
+- user profile records (`profiles`)
+- public profile/presence mirror (`profiles_public`)
+- scheduled meetings and RSVP records
+- meeting join requests
+- community content (materials, reactions, threads, replies)
+- follows and collaboration invites
 
-## Security Features
-- DTLS for secure connections
-- SRTP for media encryption
-- Optional authentication
-- Waiting room and host controls for access management
+Client-side persisted state:
+- selected UI/workspace state and active call session context via Zustand persist
 
-## Privacy Controls
-- Full user control over camera/mic
-- Explicit permissions for screen share
-- Clear recording indicators
-- Local storage by default, no cloud backups
+## Data Exposure Rules
+- guests can read public community surfaces
+- contribution operations require authentication
+- public join request metadata is intentionally collected for moderation
+
+## Media and Recording Notes
+- in-call media is browser-driven
+- recording behavior is client-controlled in current implementation
+
+## Production Recommendation
+Perform a privacy review of:
+- retention periods
+- moderation metadata visibility
+- export/delete workflows
+

@@ -1,87 +1,91 @@
 # Usage Guide
 
-## Getting Started
+## 1. Access and Roles
 
-### Create a Meeting
-1. Open the app and head to Home.
-2. Choose:
-   - One-on-One Call
-   - Group Call (up to 50 participants)
-   - Webinar (presenter/attendee roles)
-3. Grant camera and microphone permissions.
-4. Click "Start Call".
+### Guest (not logged in)
+Allowed:
+- view public ongoing calls
+- view public scheduled calls
+- view public materials and threads
+- submit public join requests with required metadata
+- RSVP to public scheduled calls with email
 
-### Join a Meeting
-1. Use the invite link from the host.
-2. Enter the waiting room (if enabled).
-3. Wait for host approval.
-4. You’ll join automatically once approved.
+Blocked:
+- start calls
+- schedule calls
+- publish materials
+- react to materials
+- post threads or replies
 
-## Core Controls
-- Mute/Unmute mic
-- Toggle camera
-- Adjust audio levels
-- Switch video quality (720p/1080p/4K)
+### Authenticated user
+Allowed:
+- all guest visibility features
+- start instant calls
+- schedule calls
+- publish and manage materials
+- react, post, reply, and collaborate
+- follow users and update profile metadata
 
-## Screen Sharing
-- Start: click the monitor icon and select screen/window/tab.
-- Stop: click the monitor icon again or use browser stop.
+## 2. Starting a Call
+1. Open `/calls`.
+2. Select call type:
+- one-on-one
+- group
+- webinar
+3. Select mode:
+- instant
+- schedule
+4. Click action button.
 
-## Real-time Features
-- Live chat (messages, files, emoji)
-- Transcription (speech-to-text, download transcripts)
-- Sign language detection (visual indicators)
-- Collaborative documents (edit together)
+Rules:
+- starting a call requires authentication
+- if user already belongs to an active meeting, launcher redirects back to that meeting
 
-## Meeting Management
-- View participants and manage permissions
-- Track meeting duration
-- Local recording: start/stop and download
-- Waiting room: approve/reject attendees
+## 3. Scheduling Calls
+1. Open `/scheduler`.
+2. Provide title, description, type, start/end date and time, attendee limit.
+3. Choose whether to publish as public listing.
+4. Save.
 
-## Advanced Features
+Public listing behavior:
+- public scheduled calls appear on community page for users and guests
+- guests can request access and RSVP
 
-### Host Controls
-- Mute all, remove participants, assign roles
-- Approve/reject waiting room entries in bulk
-- Configure recording, chat, and meeting settings
-- Generate/share meeting links
+## 4. Community Page
+Community page (`/community`) provides:
+- active users panel
+- ongoing meetings panel
+- scheduled public calls panel
+- public materials panel
+- threaded chats panel
 
-### Transcription Modes
-1. Speech Transcription
-   - Real-time speech-to-text
-   - Speaker identification, timestamps
-   - Confidence scoring
-   - Downloadable .txt transcripts
-2. Sign Language Detection
-   - Gesture recognition and translation
-   - Real-time indicators
-3. Combined Mode
-   - Speech + sign language
-   - Unified transcript output
+### Join request flow
+For public calls, requester must provide:
+- name
+- GitHub profile/name/url
+- interest description
 
-### Performance & Quality
-- Adaptive quality based on connection
-- Manual override for video quality
-- Real-time connection indicators
-- Bandwidth optimization
+### RSVP flow
+Users and guests can RSVP to public scheduled meetings.
+- users: email taken from profile
+- guests: email entered in RSVP input
+- app shows in-session start alert when RSVPed meeting transitions to active
 
-## Compatibility
+## 5. Ongoing Session Recovery
+When a user is part of an active call and navigates away from call page, a floating "Return to call" button appears globally on non-call pages.
 
-### Supported Browsers
-| Browser | Version | WebRTC | Screen Share | Recording |
-|---------|---------|--------|--------------|-----------|
-| Chrome  | 80+     | ✅     | ✅          | ✅       |
-| Firefox | 75+     | ✅     | ✅          | ✅       |
-| Safari  | 13+     | ✅     | ✅          | ⚠️       |
-| Edge    | 80+     | ✅     | ✅          | ✅       |
+## 6. Contribution Rules
+The following actions are authenticated-only:
+- publish material
+- react to material
+- post new thread
+- reply in thread
+- invite collaborator
+- create community
 
-### Mobile
-- iOS Safari (iOS 13+)
-- Android Chrome (Android 8+)
-- Touch-optimized responsive UI
+## 7. Profile Usage
+Profile page stores identity metadata used by community and join workflows:
+- display name
+- GitHub profile
+- interest/bio details
 
-### Permissions
-- Camera, microphone
-- Screen recording (desktop)
-- Notifications (optional)

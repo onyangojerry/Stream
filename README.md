@@ -1,79 +1,118 @@
-# Stream
+# Striim
 
-Modern, feature-rich video communication built with React, TypeScript, WebRTC, and Vite. Includes group calls, screen share, recording, transcription, collaborative docs, smart waiting room, and Supabase authentication.
+Striim is a web-based collaboration platform for scheduled and instant calls, public community visibility, moderated join requests, and shared materials.
 
-## Highlights
-- Fast dev experience (Vite), responsive UI (Tailwind), dark/light mode
-- WebRTC peer-to-peer with Supabase auth and role-based controls
-- Modular React components and lightweight state (Zustand)
-- Secure authentication with email/password and profile management
+## Scope
+This repository contains a React + TypeScript frontend that uses Supabase for authentication, persistence, and storage-backed community features.
+
+## Current Product Capabilities
+- Authenticated call launcher at `/calls` for one-on-one, group, and webinar sessions
+- Instant and scheduled call modes
+- Public and private meeting visibility controls
+- Community dashboard for:
+  - active users
+  - ongoing calls
+  - public scheduled calls
+  - public materials
+  - threaded chats
+- Join request workflow for public meetings requiring:
+  - requester name
+  - GitHub profile/name/url
+  - short interest description
+- RSVP support for public scheduled meetings (authenticated users and guests)
+- Floating "Return to call" shortcut when a session is active and user navigates away
+- One active joined meeting per user rule
+
+## Access Model
+### Guest user
+- Can view public community data (public ongoing calls, public scheduled calls, public threads/materials)
+- Can submit join requests to public meetings with required metadata
+- Can RSVP to public scheduled meetings using email
+- Cannot start calls
+- Cannot post/reply/react/publish/collaborate
+
+### Authenticated user
+- Can start and schedule calls
+- Can request/join meetings based on meeting conditions
+- Can publish and manage materials
+- Can post/reply in threads and react to materials
+- Can manage profile metadata and follow users
+
+## Tech Stack
+- React 18
+- TypeScript
+- Vite
+- Zustand
+- Supabase (Auth, Postgres, Storage)
+- Tailwind CSS
+- Framer Motion
+
+## Project Structure
+- `src/pages/` route-level UI
+- `src/components/` shared UI and call controls
+- `src/store/` Zustand stores
+- `src/services/` Supabase data access wrappers
+- `supabase/community_schema.sql` schema and policies for community features
+- `docs/` operational and developer documentation
+
+## Prerequisites
+- Node.js 18+
+- npm
+- Supabase project
 
 ## Quick Start
-
-### Prerequisites
-- Node.js 18+
-- Supabase account ([create one free](https://supabase.com))
-
-### Installation
+1. Install dependencies
 ```bash
-git clone https://github.com/onyangojerry/Stream.git
-cd Stream
 npm install
 ```
 
-### Setup Supabase
-1. Create a project at [supabase.com](https://supabase.com)
-2. Copy `.env.example` to `.env`
-3. Add your Supabase URL and anon key to `.env`
-4. Run the SQL setup from `docs/SUPABASE_SETUP.md` in Supabase SQL Editor
+2. Configure environment variables
+```bash
+cp .env.example .env
+```
+Set:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-### Start Dev Server
+3. Apply required database setup in Supabase SQL Editor
+- `docs/SUPABASE_SETUP.md` (`profiles` table and auth-compatible policies)
+- `supabase/community_schema.sql` (community, meetings, follows, RSVPs, storage policies)
+
+4. Start development server
 ```bash
 npm run dev
 ```
-Open http://localhost:3000
+Open `http://localhost:3000`.
 
-## Scripts
-- `npm run dev`: start Vite dev server
-- `npm run build`: production build
-- `npm run preview`: preview built app
-- `npm run lint`: run ESLint
+## Commands
+- `npm run dev` start dev server
+- `npm run build` create production build
+- `npm run build:check` run type-check and production build
+- `npm run lint` run ESLint
+- `npm run preview` preview production build locally
 
-## Tech Stack
-- **Frontend**: React 18, TypeScript, Vite
-- **Styling**: Tailwind CSS, Framer Motion
-- **State**: Zustand
-- **Auth**: Supabase Authentication
-- **Database**: Supabase PostgreSQL
-- **RTC**: WebRTC, SimplePeer
-- **Icons**: Lucide React
+## Routes
+- `/` home
+- `/calls` call launcher
+- `/join` join-by-id page
+- `/community` community dashboard
+- `/call/:roomId` one-on-one call page
+- `/group/:roomId` group call page (authenticated)
+- `/webinar/:roomId` webinar page (authenticated)
+- `/scheduler` meeting scheduler (authenticated)
+- `/recordings` recordings page (authenticated)
+- `/profile` profile page (authenticated)
 
-## Features
-- ✅ Email/password authentication with Supabase
-- ✅ User profiles with avatars
-- ✅ One-on-one & group video calls (up to 50 participants)
-- ✅ Screen sharing
-- ✅ Local recording with download
-- ✅ Real-time transcription
-- ✅ Sign language detection
-- ✅ Collaborative documents
-- ✅ Smart waiting room with host controls
-- ✅ Dark/light mode
-- ✅ Fully responsive design
+## Documentation Map
+- `docs/USAGE.md` end-user usage and behavior by role
+- `docs/SUPABASE_SETUP.md` Supabase setup and migration order
+- `docs/ARCHITECTURE.md` system architecture and store/service design
+- `docs/API.md` service/store APIs and table contract reference
+- `docs/CONFIGURATION.md` environment and runtime configuration
+- `docs/DEPLOYMENT.md` deployment and production checklist
+- `docs/SECURITY.md` security model and hardening guidance
+- `docs/PRIVACY_SECURITY.md` privacy/data handling summary
+- `docs/TROUBLESHOOTING.md` common issues and fixes
+- `docs/CONTRIBUTING.md` contribution workflow and quality gates
+- `docs/WORKFLOWS.md` implementation workflows for feature delivery
 
-## Documentation
-- **Supabase Setup**: [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)
-- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- API & Data: [docs/API.md](docs/API.md)
-- Usage Guide: [docs/USAGE.md](docs/USAGE.md)
-- Features & Workflows: [docs/WORKFLOWS.md](docs/WORKFLOWS.md)
-- Waiting Room: [docs/WAITING_ROOM_GUIDE.md](docs/WAITING_ROOM_GUIDE.md)
-- Deployment: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-- Configuration: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
-- Security & Privacy: [docs/PRIVACY_SECURITY.md](docs/PRIVACY_SECURITY.md)
-- Contributing: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
-- Changelog: [docs/CHANGELOG.md](docs/CHANGELOG.md)
-- Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
-
-## License
-See repository license information.
